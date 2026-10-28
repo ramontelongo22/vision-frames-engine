@@ -1,16 +1,24 @@
 {
   "name": "vision-frames-v1",
   "version": "1.0.0",
-  "description": "Vision Frames v1 - Identity-first still image generation system",
+  "description": "Vision Frames v1 - identity-first still image generation engine",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src tests --ext .ts",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "check:import": "node -e \"const vf = require('./'); if (typeof vf.VisionFramesEngine !== 'function') { process.exit(1); } console.log('package import ok');\"",
+    "frame": "node dist/runner.js",
+    "verify": "npm run typecheck && npm run build && npm test -- --runInBand && npm run lint && npm run check:import && npm run smoke:mock",
+    "smoke:mock": "node dist/runner.js --mock --scenario refine --identity \"calm, grounded\" --out out/smoke"
   },
   "keywords": [
     "vision-frames",
@@ -20,7 +28,8 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@google/generative-ai": "^0.21.0"
+    "@google/genai": "2.31.0",
+    "openai": "7.45.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

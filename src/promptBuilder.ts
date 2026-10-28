@@ -1,20 +1,24 @@
 /**
  * Vision Frames v1 - Canonical Prompt Builder
- * Single source of truth: /spec/VisionFrames_v1.pdf Section 4
+ * Single source of truth: spec/VisionFrames_v1.pdf Section 4 and System Flow step 3
  *
  * Returns the Canonical Internal Prompt verbatim.
  * Inserts only the 3 allowed variables without changing canonical wording.
+ *
+ * Serialization (implementation clarification, docs/DECISIONS.md P-07): the canonical
+ * core always comes first and is never edited. Each allowed variable follows on its own
+ * labeled line, collapsed to a single line so a value cannot open a new section.
+ * Empty variables are omitted.
  */
 
 import { CleanIntent } from './schema';
 
 /**
- * Build the Canonical Internal Prompt (v1) verbatim from PDF
- * Only inserts allowed variables: identityDirection, environmentPreference, moodTone
+ * Canonical Internal Prompt (v1), verbatim from PDF Section 4.
+ * PDF line wrapping is presentation; sentences are separated by blank lines.
+ * "Success" in the final sentence is canonical text and is kept as written (handoff D10).
  */
-export function buildCanonicalPrompt(cleanIntent: CleanIntent): string {
-  // Start with base canonical prompt - verbatim from PDF Section 4
-  let prompt = `Generate a photorealistic image of the future version of the user in an identity-forward arrival moment.
+export const CANONICAL_PROMPT_V1 = `Generate a photorealistic image of the future version of the user in an identity-forward arrival moment.
 
 The subject is a single individual, depicted in a low-action state (standing or walking only), expressing calm presence and ownership of space.
 
@@ -30,20 +34,36 @@ Likeness must remain natural and consistent with reference images.
 
 Success is implied through stillness and environment, never through actions, objects, or outcomes.`;
 
-  // Insert identity direction if present
-  if (cleanIntent.identityDirection) {
-    prompt = `${cleanIntent.identityDirection}\n\n` + prompt;
+const VARIABLE_LABELS: ReadonlyArray<readonly [keyof CleanIntent, string]> = [
+  ['identityDirection', 'Identity direction'],
+  ['environmentPreference', 'Environment preference'],
+  ['moodTone', 'Mood/tone'],
+];
+
+/**
+ * Build the Canonical Internal Prompt (v1) verbatim from PDF
+ * Only inserts allowed variables: identityDirection, environmentPreference, moodTone
+ */
+export function buildCanonicalPrompt(cleanIntent: CleanIntent): string {
+  const variableLines: string[] = [];
+
+  for (const [key, label] of VARIABLE_LABELS) {
+    const value = toSingleLine(cleanIntent[key]);
+    if (value) {
+      variableLines.push(`${label}: ${value}`);
+    }
   }
 
-  // Insert environment preference if present
-  if (cleanIntent.environmentPreference) {
-    prompt += `\n\n${cleanIntent.environmentPreference}`;
+  if (variableLines.length === 0) {
+    return CANONICAL_PROMPT_V1;
   }
 
-  // Insert mood/tone if present
-  if (cleanIntent.moodTone) {
-    prompt += `\n\n${cleanIntent.moodTone}`;
-  }
+  return `${CANONICAL_PROMPT_V1}\n\n${variableLines.join('\n')}`;
+}
 
-  return prompt;
+function toSingleLine(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/\s+/g, ' ').trim();
 }
