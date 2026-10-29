@@ -12,6 +12,8 @@ export { REFINEMENT_TYPES, buildRefinementPrompt } from './refinement';
 export type { RefinementType } from './refinement';
 export { CONFIG, LIMITS } from './config';
 export { validateImageBytes } from './images';
+export { convertHeicToJpeg, isHeic } from './heic';
+export type { HeicConversion } from './heic';
 export type { CandidateImage, ImagePayload, ImageMimeType, ReferenceImage, ValidatedImage } from './images';
 export { ProviderError, FATAL_FAILURE_KINDS } from './errors';
 export type { ProviderFailureKind } from './errors';

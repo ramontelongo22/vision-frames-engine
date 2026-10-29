@@ -12,7 +12,8 @@
   live run reviewed by a person.
 - No paid API calls (`npm run frame -- --live`), deployments, or customer-facing messages without
   the owner's explicit approval.
-- Out of scope unless the owner approves it: vision boards or multi-frame bundles, video, checkout,
-  libraries/CRUD apps, wardrobe or pose controls, extra intake fields.
+- Out of scope unless the owner approves it: video, checkout, libraries/CRUD apps, wardrobe or pose
+  controls, extra intake fields. The owner chose a board product on 2026-10-29 (`docs/DECISIONS.md`
+  Owner decisions); write no board code until the owner approves the v2 board spec.
 - Do not invent a quality metric for the "quality degrades" stop; it stays blocked until the owner
   defines a rubric.

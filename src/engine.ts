@@ -17,7 +17,7 @@
 import { CONFIG, LIMITS } from './config';
 import { FATAL_FAILURE_KINDS, ProviderFailureKind, failureKindOf } from './errors';
 import { CandidateImage, ImagePayload, ReferenceImage, validateImageBytes } from './images';
-import { prepareReferences, validateRawInput } from './intake';
+import { convertHeicReferences, prepareReferences, validateRawInput } from './intake';
 import { normalize } from './normalize';
 import { buildCanonicalPrompt } from './promptBuilder';
 import { ViolationCode, checkQAGate, validateAnalysisReport } from './qaGate';
@@ -89,6 +89,7 @@ export type EngineEvent =
   | { type: 'intake_rejected'; reason: string }
   | { type: 'fields_dropped'; count: number }
   | { type: 'references_rejected'; reason: string }
+  | { type: 'references_converted'; count: number }
   | { type: 'semantic_normalization_requested' }
   | { type: 'semantic_normalization_failed'; kind: ProviderFailureKind }
   | { type: 'normalized'; method: 'deterministic' | 'semantic' | 'deterministic_fallback' }
@@ -103,7 +104,11 @@ export type EngineEvent =
   | { type: 'qa_passed'; candidateId: string; refinement: RefinementType | null }
   | { type: 'qa_failed'; candidateId: string; violations: ViolationCode[] }
   | { type: 'refinement_skipped'; baseId: string; reason: 'budget_exhausted' }
-  | { type: 'refinement_fallback'; baseId: string }
+  | {
+      type: 'refinement_abandoned';
+      baseId: string;
+      cause: 'attempts_failed' | 'likeness_failed_twice' | 'repeat_violations' | ProviderFailureKind;
+    }
   | { type: 'internal_error'; message: string }
   | { type: 'terminated'; reason: ExitReason };
 
@@ -184,8 +189,11 @@ class RunState {
    * - Likeness fails twice: second likeness failure anywhere in the run (P-03).
    * - Same violation repeats: second occurrence of any violation code anywhere in the
    *   run, across generations and refinements, adjacent or not (P-03).
+   *
+   * A hard stop ends the run. When the result is for a refinement of `passedBase`, that
+   * QA-passing base is delivered instead of ending with nothing (V2-01).
    */
-  applyQA(violations: ViolationCode[]): void {
+  applyQA(violations: ViolationCode[], passedBase?: CandidateImage): void {
     this.violations.push([...violations]);
 
     for (const code of violations) {
@@ -195,10 +203,20 @@ class RunState {
       this.likenessFailures++;
     }
 
+    let hardStop: 'likeness_failed_twice' | 'repeat_violations' | undefined;
     if (this.likenessFailures >= 2) {
-      this.stop('likeness_failed_twice');
+      hardStop = 'likeness_failed_twice';
     } else if ([...this.violationCounts.values()].some((count) => count >= 2)) {
-      this.stop('repeat_violations');
+      hardStop = 'repeat_violations';
+    }
+    if (!hardStop) {
+      return;
+    }
+    if (passedBase) {
+      this.record({ type: 'refinement_abandoned', baseId: passedBase.id, cause: hardStop });
+      this.succeed(passedBase);
+    } else {
+      this.stop(hardStop);
     }
   }
 
@@ -278,7 +296,17 @@ export class VisionFramesEngine {
       run.record({ type: 'fields_dropped', count: intake.droppedFieldCount });
     }
 
-    const referenceIntake = prepareReferences(this.referenceImages);
+    const conversion = await convertHeicReferences(this.referenceImages);
+    if (!conversion.ok) {
+      run.record({ type: 'references_rejected', reason: conversion.reason });
+      run.stop('invalid_references');
+      return;
+    }
+    if (conversion.convertedCount > 0) {
+      run.record({ type: 'references_converted', count: conversion.convertedCount });
+    }
+
+    const referenceIntake = prepareReferences(conversion.references);
     if (!referenceIntake.ok) {
       run.record({ type: 'references_rejected', reason: referenceIntake.reason });
       run.stop('invalid_references');
@@ -328,18 +356,18 @@ export class VisionFramesEngine {
         continue;
       }
 
-      // Step 6: Refinement eligibility and loop
+      // Step 6: Refinement eligibility and loop. Always ends the run (O-03).
       await this.refinementPhase(candidate, review.refinement, prompt, references, run, signal);
-      if (!run.active) {
-        return;
-      }
-      // Refinements failed with none remaining: fall back to the generation loop
+      return;
     }
   }
 
   /**
    * Step 6. The QA-passing base is kept separately and is the only image ever edited;
-   * a failed refinement is discarded, never reused as a base (P-01, P-02).
+   * a failed refinement is discarded, never reused as a base (P-01, P-02). When no
+   * refinement passes, the base is delivered instead of generating again (O-03), and a
+   * hard stop during refinement also delivers it (V2-01). Cancellation ends the run with
+   * nothing.
    */
   private async refinementPhase(
     base: CandidateImage,
@@ -366,7 +394,7 @@ export class VisionFramesEngine {
         return;
       }
       const attempt = run.beginRefinement(refinement, base.id);
-      const refined = await this.invokeImageCall(run, signal, 'refinement', attempt, base.id, () =>
+      const refined = await this.invokeImageCall(run, signal, 'refinement', attempt, base, () =>
         this.generationModel.refine({ prompt, refinement, baseImage: base, references, signal })
       );
       if (!run.active) {
@@ -376,7 +404,7 @@ export class VisionFramesEngine {
         continue;
       }
 
-      const review = await this.review(refined, references, run, signal);
+      const review = await this.review(refined, references, run, signal, base);
       if (!run.active) {
         return;
       }
@@ -386,19 +414,21 @@ export class VisionFramesEngine {
       }
     }
 
-    run.record({ type: 'refinement_fallback', baseId: base.id });
+    run.record({ type: 'refinement_abandoned', baseId: base.id, cause: 'attempts_failed' });
+    run.succeed(base);
   }
 
   /**
    * Make one counted image call and validate what comes back. Returns null when the
-   * attempt produced nothing usable; the run is stopped if the failure is fatal.
+   * attempt produced nothing usable; the run ends if the failure is fatal. `base` is
+   * the QA-passing image being refined, if any.
    */
   private async invokeImageCall(
     run: RunState,
     signal: AbortSignal | undefined,
     operation: ImageOperation,
     attempt: number,
-    baseId: string | undefined,
+    base: CandidateImage | undefined,
     call: () => Promise<ImagePayload>
   ): Promise<CandidateImage | null> {
     let payload: ImagePayload;
@@ -407,7 +437,7 @@ export class VisionFramesEngine {
     } catch (error) {
       const kind = signal?.aborted ? 'cancelled' : failureKindOf(error);
       run.record({ type: 'call_failed', operation, attempt, kind });
-      this.stopIfFatal(run, kind);
+      this.stopIfFatal(run, kind, base);
       return null;
     }
 
@@ -426,7 +456,7 @@ export class VisionFramesEngine {
       ...validation.image,
       id: `${operation}-${attempt}`,
       origin: operation,
-      ...(baseId ? { baseId } : {}),
+      ...(base ? { baseId: base.id } : {}),
     };
     run.record({ type: 'candidate_received', operation, candidateId: candidate.id });
     return candidate;
@@ -435,12 +465,14 @@ export class VisionFramesEngine {
   /**
    * Analyze one candidate against the references and apply the QA gate.
    * Returns the eligible refinement when the candidate passes, otherwise null.
+   * `passedBase` is set when the candidate is a refinement of that image.
    */
   private async review(
     candidate: CandidateImage,
     references: readonly ReferenceImage[],
     run: RunState,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    passedBase?: CandidateImage
   ): Promise<{ refinement: RefinementType | null } | null> {
     if (this.stopIfCancelled(run, signal)) {
       return null;
@@ -453,7 +485,7 @@ export class VisionFramesEngine {
     } catch (error) {
       const kind = signal?.aborted ? 'cancelled' : failureKindOf(error);
       run.record({ type: 'analysis_failed', candidateId: candidate.id, kind });
-      this.stopIfFatal(run, kind);
+      this.stopIfFatal(run, kind, passedBase);
       return null;
     }
 
@@ -475,7 +507,7 @@ export class VisionFramesEngine {
     }
 
     run.record({ type: 'qa_failed', candidateId: candidate.id, violations: qa.violations });
-    run.applyQA(qa.violations);
+    run.applyQA(qa.violations, passedBase);
     return null;
   }
 
@@ -507,7 +539,11 @@ export class VisionFramesEngine {
     return normalize(input);
   }
 
-  private stopIfFatal(run: RunState, kind: ProviderFailureKind): boolean {
+  /**
+   * End the run on a fatal failure. During a refinement the QA-passing base is delivered
+   * instead (O-03); cancellation always ends the run with nothing.
+   */
+  private stopIfFatal(run: RunState, kind: ProviderFailureKind, passedBase?: CandidateImage): boolean {
     if (!run.active) {
       return true;
     }
@@ -516,7 +552,12 @@ export class VisionFramesEngine {
       return true;
     }
     if (FATAL_FAILURE_KINDS.has(kind)) {
-      run.stop('technical_failure');
+      if (passedBase) {
+        run.record({ type: 'refinement_abandoned', baseId: passedBase.id, cause: kind });
+        run.succeed(passedBase);
+      } else {
+        run.stop('technical_failure');
+      }
       return true;
     }
     return false;

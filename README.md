@@ -12,10 +12,12 @@ reel, fantasy, or productivity simulation.
 | Area | State |
 |------|-------|
 | Engine control flow (caps, hard stops, refinement, fail-closed QA) | Implemented; covered by mocked tests |
+| iPhone HEIC reference photos | Converted to JPEG on intake; tested with libheif-made files, not yet with photos from an iPhone |
 | Gemini image generation and refinement adapter | Implemented; request shape tested offline; **no live call made yet** |
 | OpenAI reference-aware QA analyzer | Implemented; request shape tested offline; **no live call made yet** |
 | Optional LLM normalization step | Implemented; offline tests only |
 | "Quality degrades with retries" hard stop | **Not implemented**: needs an owner-defined rubric |
+| Boards (3, 7 or 9 frames) | Chosen by the owner; v2 spec awaiting approval; no code |
 | UI, storage, auth, payments, deployment | None |
 
 Details: [`docs/PROGRESS.md`](docs/PROGRESS.md) (what was run and what it showed),
@@ -37,19 +39,22 @@ No API keys are needed for any of that.
 
 ```
 reference images + { identityDirection, environmentPreference?, moodTone? }
-  -> intake: validate image bytes and the three permitted fields; drop anything else
+  -> intake: convert HEIC to JPEG; validate image bytes and the three permitted fields;
+     drop anything else
   -> normalize: silently strip disallowed framing, actions, objects, roles, commands
   -> canonical prompt (verbatim R1 Section 4) + labeled variables
   -> generation loop, at most 3 calls
        -> analyze candidate against the references -> QA gate (8 discard rules)
        -> fail: discard, update counters, check hard stops
        -> pass: deliver, or apply one permitted refinement (lighting / environment tone /
-          minor framing) to that image, at most 2 refinements per run
+          minor framing) to that image, at most 2 refinements per run; if no refinement
+          passes, deliver the QA-passing image (V2-01)
   -> exit: one QA-passing frame, or a silent stop
 ```
 
 Hard stops end the run before any further model call: likeness fails twice, or the same
-violation repeats (anywhere in the run). Every outcome other than a delivered frame looks the
+violation repeats (anywhere in the run). A hard stop during a refinement still delivers the
+QA-passing image it was editing (V2-01). Every outcome other than a delivered frame looks the
 same to a user (`toPublicOutcome`).
 
 ## Source layout
@@ -57,7 +62,7 @@ same to a user (`toPublicOutcome`).
 | File | Role |
 |------|------|
 | `src/engine.ts` | Run controller, model interfaces, event ledger |
-| `src/intake.ts`, `src/images.ts` | Input and image contracts |
+| `src/intake.ts`, `src/images.ts`, `src/heic.ts` | Input and image contracts; HEIC conversion |
 | `src/normalize.ts`, `src/semanticNormalizer.ts` | Clean Intent (deterministic floor plus optional LLM) |
 | `src/promptBuilder.ts` | Canonical prompt constant and variable serialization |
 | `src/qaGate.ts` | Discard rules, violation codes, analysis validation |
@@ -80,7 +85,7 @@ import {
 const engine = new VisionFramesEngine(
   new NanoBananaImageGenerationModel({ apiKey: process.env.GEMINI_API_KEY }),
   new OpenAIImageAnalysisModel({ apiKey: process.env.OPENAI_API_KEY }),
-  [{ bytes: photoBuffer }] // 1-4 reference images; format is read from the bytes
+  [{ bytes: photoBuffer }] // 1-4 reference images (PNG, JPEG, WebP, HEIC); format is read from the bytes
 );
 
 const result = await engine.execute({

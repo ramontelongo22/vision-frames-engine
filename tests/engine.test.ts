@@ -70,12 +70,16 @@ describe('VisionFramesEngine', () => {
     });
 
     it('counts non-adjacent recurrence across generation and refinement', async () => {
-      // generation-1 seated, generation-2 passes, its refinement comes back seated
+      // generation-1 seated, generation-2 passes, its refinement comes back seated:
+      // the stop prevents the second refinement and the passing base is delivered (V2-01)
       const h = harness({ analyses: [fail('isSeated'), pass('lighting'), fail('isSeated'), pass()] });
       const result = await h.engine.execute(input);
 
-      expect(result.exitReason).toBe('repeat_violations');
       expect(h.ledger).toEqual(['generate', 'analyze', 'generate', 'analyze', 'refine', 'analyze']);
+      expect(result.events).toContainEqual({
+        type: 'refinement_abandoned', baseId: 'generation-2', cause: 'repeat_violations',
+      });
+      expect(result.finalImage?.id).toBe('generation-2');
       expectCleanTermination(result, h);
     });
 
@@ -85,7 +89,9 @@ describe('VisionFramesEngine', () => {
       });
       const result = await h.engine.execute(input);
 
-      expect(result.exitReason).toBe('repeat_violations');
+      expect(result.events).toContainEqual({
+        type: 'refinement_abandoned', baseId: 'generation-2', cause: 'repeat_violations',
+      });
       expect(h.generateCalls).toHaveLength(2);
       expect(h.refineCalls).toHaveLength(2);
       expectCleanTermination(result, h);
@@ -103,21 +109,27 @@ describe('VisionFramesEngine', () => {
       expectCleanTermination(result, h);
     });
 
-    it('stops when the second likeness failure comes from a refinement', async () => {
+    it('stops attempts when the second likeness failure comes from a refinement', async () => {
       const h = harness({ analyses: [fail('likenessIssue'), pass('lighting'), fail('likenessIssue'), pass()] });
       const result = await h.engine.execute(input);
 
-      expect(result.exitReason).toBe('likeness_failed_twice');
       expect(h.ledger).toEqual(['generate', 'analyze', 'generate', 'analyze', 'refine', 'analyze']);
+      expect(result.events).toContainEqual({
+        type: 'refinement_abandoned', baseId: 'generation-2', cause: 'likeness_failed_twice',
+      });
+      expect(result.finalImage?.id).toBe('generation-2');
       expectCleanTermination(result, h);
     });
 
-    it('stops after two failed refinements on likeness without falling back to generation', async () => {
+    it('stops after two failed refinements on likeness without generating again', async () => {
       const h = harness({ analyses: [pass('lighting'), fail('likenessIssue'), fail('likenessIssue'), pass()] });
       const result = await h.engine.execute(input);
 
-      expect(result.exitReason).toBe('likeness_failed_twice');
       expect(h.ledger).toEqual(['generate', 'analyze', 'refine', 'analyze', 'refine', 'analyze']);
+      expect(result.events).toContainEqual({
+        type: 'refinement_abandoned', baseId: 'generation-1', cause: 'likeness_failed_twice',
+      });
+      expect(result.finalImage?.id).toBe('generation-1');
       expectCleanTermination(result, h);
     });
 
@@ -132,40 +144,21 @@ describe('VisionFramesEngine', () => {
   });
 
   describe('AC-08 refinement cap is one budget for the whole run', () => {
-    it('makes at most two refinement calls across fallback generations (audit probe)', async () => {
+    it('makes at most two refinement calls, then delivers the passing base (audit probe)', async () => {
       // Baseline made six refinement calls here and reported two
-      const h = harness({
-        analyses: [
-          pass('lighting'), fail('hasObjects'), fail('hasMultiplePeople'),
-          pass('lighting'), fail('isOverStylized'), fail('isCloseUpOrExtremeAngle'),
-          pass('lighting'),
-        ],
-      });
+      const h = harness({ analyses: [pass('lighting'), fail('hasObjects'), fail('hasMultiplePeople')] });
       const result = await h.engine.execute(input);
 
       expect(h.refineCalls).toHaveLength(2);
       expect(result.refinementAttempts).toBe(2);
-      // generation-2 passed QA and no refinement budget remained, so it is delivered as is
+      // O-03: the QA-passing generation is delivered instead of generating again
       expect(result.exitReason).toBe('success');
-      expect(result.finalImage?.id).toBe('generation-2');
-      expect(result.events).toContainEqual({ type: 'refinement_skipped', baseId: 'generation-2', reason: 'budget_exhausted' });
-      expectCleanTermination(result, h);
-    });
-
-    it('does not reset the refinement budget when a later generation passes', async () => {
-      const h = harness({
-        analyses: [
-          pass('lighting'), fail('hasObjects'), fail('hasMultiplePeople'),
-          fail('isSeated'),
-          pass('environment_tone'),
-        ],
+      expect(result.finalImage?.id).toBe('generation-1');
+      expect(h.generateCalls).toHaveLength(1);
+      expect(h.ledger).toEqual(['generate', 'analyze', 'refine', 'analyze', 'refine', 'analyze']);
+      expect(result.events).toContainEqual({
+        type: 'refinement_abandoned', baseId: 'generation-1', cause: 'attempts_failed',
       });
-      const result = await h.engine.execute(input);
-
-      expect(result.exitReason).toBe('success');
-      expect(result.finalImage?.id).toBe('generation-3');
-      expect(h.generateCalls).toHaveLength(3);
-      expect(h.refineCalls).toHaveLength(2);
       expectCleanTermination(result, h);
     });
 
@@ -182,18 +175,80 @@ describe('VisionFramesEngine', () => {
       expectCleanTermination(result, h);
     });
 
-    it('ends silently when refinements and generations are all used up', async () => {
+    it('delivers the passing base when both refinement calls fail transiently', async () => {
       const h = harness({
-        analyses: [
-          pass('lighting'), fail('hasObjects'), fail('hasMultiplePeople'),
-          fail('isSeated'), fail('isOverStylized'),
-        ],
+        analyses: [pass('environment_tone')],
+        refinements: [new ProviderError('timeout', 'slow'), new ProviderError('no_image', 'text only')],
       });
       const result = await h.engine.execute(input);
 
-      expect(result.exitReason).toBe('generations_exhausted');
-      expect(h.generateCalls).toHaveLength(3);
+      expect(result.exitReason).toBe('success');
+      expect(result.finalImage?.id).toBe('generation-1');
+      expect(result.refinementAttempts).toBe(2);
+      expect(h.ledger).toEqual(['generate', 'analyze', 'refine', 'refine']);
+      expectCleanTermination(result, h);
+    });
+  });
+
+  describe('O-03 a failed refinement delivers the QA-passing base', () => {
+    it.each(['auth', 'quota', 'bad_request'] as const)(
+      'delivers the base when a refinement call has a fatal %s failure',
+      async (kind) => {
+        const h = harness({ analyses: [pass('lighting')], refinements: [new ProviderError(kind, 'x')] });
+        const result = await h.engine.execute(input);
+
+        expect(result.exitReason).toBe('success');
+        expect(result.finalImage?.id).toBe('generation-1');
+        expect(h.ledger).toEqual(['generate', 'analyze', 'refine']);
+        expect(result.events).toContainEqual({ type: 'refinement_abandoned', baseId: 'generation-1', cause: kind });
+        expectCleanTermination(result, h);
+      }
+    );
+
+    it('delivers the base when the analyzer fails fatally on the refined image', async () => {
+      const h = harness({ analyses: [pass('lighting'), new ProviderError('auth', 'bad key')] });
+      const result = await h.engine.execute(input);
+
+      expect(result.exitReason).toBe('success');
+      expect(result.finalImage?.id).toBe('generation-1');
+      expect(h.ledger).toEqual(['generate', 'analyze', 'refine', 'analyze']);
+      expectCleanTermination(result, h);
+    });
+
+    it('delivers the base when a refined image has invalid analysis twice', async () => {
+      const h = harness({ analyses: [pass('minor_framing'), { findings: {} }, 'not json'] });
+      const result = await h.engine.execute(input);
+
+      expect(result.exitReason).toBe('success');
+      expect(result.finalImage?.id).toBe('generation-1');
       expect(h.refineCalls).toHaveLength(2);
+      expectCleanTermination(result, h);
+    });
+
+    it('ends with nothing when a hard stop comes from generations', async () => {
+      // Only a refinement's base is delivered on a hard stop; generations never are
+      const h = harness({ analyses: [fail('likenessIssue'), fail('likenessIssue')] });
+      const result = await h.engine.execute(input);
+
+      expect(result.exitReason).toBe('likeness_failed_twice');
+      expect(result.success).toBe(false);
+      expectCleanTermination(result, h);
+    });
+
+    it('still ends with nothing when cancelled during a refinement', async () => {
+      const controller = new AbortController();
+      const h = harness({
+        analyses: [pass('lighting')],
+        refinements: [() => {
+          controller.abort();
+          return { bytes: png(), mimeType: 'image/png' };
+        }],
+      });
+      const result = await h.engine.execute(input, { signal: controller.signal });
+
+      expect(result.exitReason).toBe('cancelled');
+      expect(result.success).toBe(false);
+      expect(h.ledger).toEqual(['generate', 'analyze', 'refine']);
       expectCleanTermination(result, h);
     });
   });
@@ -201,12 +256,13 @@ describe('VisionFramesEngine', () => {
   describe('AC-12 terminal state propagates', () => {
     it('ends the whole run when a hard stop happens inside refinement', async () => {
       // Baseline returned from the refinement loop and kept generating
-      const h = harness({ analyses: [pass('lighting'), fail('hasObjects'), fail('hasObjects'), pass()] });
+      const h = harness({ analyses: [fail('hasObjects'), pass('lighting'), fail('hasObjects'), pass()] });
       const result = await h.engine.execute(input);
 
-      expect(result.exitReason).toBe('repeat_violations');
-      expect(result.success).toBe(false);
-      expect(h.generateCalls).toHaveLength(1);
+      // No second refinement and no third generation. V2-01: the QA-passing base is
+      // delivered rather than nothing
+      expect(h.ledger).toEqual(['generate', 'analyze', 'generate', 'analyze', 'refine', 'analyze']);
+      expect(result.finalImage?.id).toBe('generation-2');
       const terminatedAt = result.events.findIndex((e) => e.type === 'terminated');
       const workAfter = result.events.slice(terminatedAt + 1);
       expect(workAfter).toEqual([]);

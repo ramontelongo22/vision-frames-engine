@@ -8,10 +8,12 @@
  *
  * Fields outside the contract are not accepted: they are dropped silently and never
  * reach normalization or the prompt. Values of the wrong type, or reference images
- * that fail the image contract, end the run before any model call.
+ * that fail the image contract, end the run before any model call. HEIC references are
+ * converted to JPEG first (O-05).
  */
 
 import { LIMITS } from './config';
+import { convertHeicToJpeg, HEIC_MIME_TYPES, isHeic } from './heic';
 import { ReferenceImage, validateImageBytes } from './images';
 import { INTENT_FIELDS, RawInput } from './schema';
 
@@ -55,6 +57,47 @@ export function validateRawInput(raw: unknown): IntakeResult {
   ).length;
 
   return { ok: true, input, droppedFieldCount };
+}
+
+export type HeicReferenceResult =
+  | { ok: true; references: unknown; convertedCount: number }
+  | { ok: false; reason: string };
+
+/**
+ * Convert HEIC reference images to JPEG (O-05) so `prepareReferences` can validate them.
+ * Anything that is not HEIC passes through untouched, as does input that
+ * `prepareReferences` will reject anyway (not an array, or too many images).
+ */
+export async function convertHeicReferences(raw: unknown): Promise<HeicReferenceResult> {
+  if (!Array.isArray(raw) || raw.length > LIMITS.maxReferenceImages) {
+    return { ok: true, references: raw, convertedCount: 0 };
+  }
+
+  const references: unknown[] = [];
+  let convertedCount = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const entry = raw[i] as { bytes?: unknown; mimeType?: unknown } | null;
+    if (typeof entry !== 'object' || entry === null || !(entry.bytes instanceof Uint8Array) || !isHeic(entry.bytes)) {
+      references.push(entry);
+      continue;
+    }
+    const declared = entry.mimeType;
+    if (
+      declared !== undefined &&
+      declared !== null &&
+      (typeof declared !== 'string' || !HEIC_MIME_TYPES.has(declared.split(';')[0].trim().toLowerCase()))
+    ) {
+      return { ok: false, reason: `reference ${i + 1} failed validation: mime_mismatch` };
+    }
+    const converted = await convertHeicToJpeg(entry.bytes);
+    if (!converted.ok) {
+      return { ok: false, reason: `reference ${i + 1} failed validation: heic_${converted.error}` };
+    }
+    references.push({ bytes: converted.bytes, mimeType: 'image/jpeg' });
+    convertedCount++;
+  }
+
+  return { ok: true, references, convertedCount };
 }
 
 export type ReferenceIntakeResult =

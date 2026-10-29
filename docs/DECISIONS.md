@@ -5,14 +5,51 @@ The frozen spec is `spec/VisionFrames_v1.pdf` (R1, "Vision Frames v1 - Rules & F
 this file. Handoff IDs (D01-D17, F01-F15, AC-01-AC-20, B00-B16) refer to "Vision Frames —
 Evidence-based Agent Handoff", 28 Oct 2026.
 
-Two kinds of entries:
+Three kinds of entries:
 
+- **Owner decisions (V2-xx, and dated answers to O-xx).** Choices the owner made. A V2-xx entry
+  changes an R1 rule and is the recorded Vision Frames v2 decision that change requires.
 - **Provisional engineering decisions (P-xx).** Places where R1 is silent or ambiguous and the
   code needed one concrete behavior. Each is the most conservative reading available, is
   covered by tests, and can be changed without touching R1. None of them is an approved
   product change. The owner can overturn any of them.
 - **Open owner decisions (O-xx).** Product questions the engine cannot settle. Nothing here has
   been decided on the owner's behalf.
+
+## Owner decisions
+
+All made by Rob (owner) on 2026-10-29 by choosing an option on a decision card in the project
+thread, after each card set out the conflicting sources and a recommendation.
+
+### V2-01 A QA-passing frame is never thrown away because its refinement failed
+- **Rule change:** R1 System Flow 6 says a failed refinement is discarded and the run either
+  refines again or falls back to the generation loop. R1 §7 says a hard stop ends the run
+  silently. Now, once a generation has passed QA, the run always ends by delivering a frame:
+  the refined image if a refinement passes, otherwise that QA-passing base. This covers a
+  refinement that fails QA, a refinement or its analysis that fails at the provider (fatal or
+  transient), and a refinement that trips a hard stop (likeness failing twice, or a repeated
+  violation). The hard stop still ends all further attempts. Cancellation still ends the run
+  with nothing. Hard stops during generations are unchanged: the run ends with nothing.
+- **Unchanged:** every discard rule, both caps, and the canonical prompt. A failed refinement
+  is still discarded and never delivered or reused as a base.
+- **Answers:** O-03 ("Deliver the passed image") and the follow-up card on hard stops ("Yes,
+  deliver the passed image").
+- **Code and tests:** `src/engine.ts` `refinementPhase`, `RunState.applyQA`, `stopIfFatal`;
+  event `refinement_abandoned` records why. `engine.test.ts` AC-08, AC-09, AC-10, AC-12 and
+  "O-03 a failed refinement delivers the QA-passing base".
+
+### Answers to open questions
+| Question | Owner's choice | What follows |
+|----------|----------------|--------------|
+| O-01 single frame or board | A board made of frames | A v2 board spec is drafted for owner approval before any board code. The engine keeps producing one frame per run |
+| Board size | Tiers of 3, 7 and 9 frames | Prices set after a live test measures the real cost per frame (D15) |
+| Board rules | Every frame follows all v1 rules | No rule changes for boards; frames differ only in setting and mood |
+| Board variety | Customer lists a few places | Up to one place per frame; blanks filled from an owner-approved settings list; every entry is normalized like `environmentPreference` |
+| Board failures | Deliver passed frames, refund the rest | No extra attempts beyond each frame's own caps; partial refund or credit for missing frames |
+| Board downloads | Each frame plus a board image | Individual image files plus one compiled board image laid out as a grid |
+| O-02 quality rubric | Define it from live test images | After the live test the owner marks better and worse frames; a checklist is drafted from that for approval. AC-11 stays blocked until then |
+| O-05 photos | Keep 1 to 4, add HEIC | HEIC is converted to JPEG on intake (P-09). Consent copy and likeness examples are still open |
+| Audience | A few friendly testers soon | After the live test: a simple private upload and download page with a consent note. No payments yet |
 
 ## Provisional engineering decisions
 
@@ -28,15 +65,14 @@ Two kinds of entries:
 
 ### P-02 Failed refinement and base selection (D04)
 - **Behavior:** the QA-passing base is kept separately and is the only image ever edited. A
-  failed refinement is discarded and never used as the next base. After a failed refinement:
-  refine again from the same base if refinement budget remains, otherwise fall back to the
-  generation loop if generation budget remains (R1 System Flow 6, read literally). If both are
-  used up the run ends silently, even though the earlier base had passed QA. When a later
-  generation passes and wants a refinement but none is left, it is delivered as is.
+  failed refinement is discarded and never used as the next base. After a failed refinement,
+  refine again from the same base if refinement budget remains. When no refinement passes, the
+  base is delivered (V2-01); the run never returns to the generation loop after a pass.
 - **Sources:** R1 §6 "Never fix… If these fail → discard"; System Flow 6 "discard and either
-  refine again (if remaining), or fall back to generation loop".
-- **Owner question:** see O-03.
-- **Tests:** `engine.test.ts` AC-06, AC-08.
+  refine again (if remaining), or fall back to generation loop", changed by V2-01.
+- **History:** until 2026-10-29 the code followed System Flow 6 literally and fell back to
+  generation, which could end with nothing after a frame had passed.
+- **Tests:** `engine.test.ts` AC-06, AC-08, O-03.
 
 ### P-03 Hard-stop scope (D05)
 - **Behavior:** state is updated from the current QA result first, then hard stops are checked,
@@ -46,6 +82,7 @@ Two kinds of entries:
   - "Same violation repeats": the second occurrence of any violation code anywhere in the run,
     adjacent or not, across generations and refinements. A pass in between does not reset it.
   - When both trigger together the reason recorded is `likeness_failed_twice`.
+  - A hard stop tripped by a refinement delivers the QA-passing base (V2-01).
 - **Sources:** R1 §7; System Flow 7; handoff D05 recommends second occurrence.
 - **Consequence:** generation exhaustion only happens when three generations fail with no code
   repeated. The two baseline tests that expected `generations_exhausted` after three seated
@@ -67,6 +104,8 @@ Two kinds of entries:
     `timeout`, `network`, `server`, `refusal`, `no_image`, `invalid_response`.
   - Malformed, refused, or failed analysis discards the candidate. It is never a pass and never
     counts as a QA violation.
+  - A fatal failure during a refinement or its analysis delivers the QA-passing base instead of
+    `technical_failure` (V2-01); cancellation does not.
 - **Tests:** `engine.test.ts` AC-04, AC-15; adapter classification tests.
 
 ### P-06 Public outcome is silent (D11)
@@ -92,13 +131,27 @@ Two kinds of entries:
   cannot produce safe intent".
 
 ### P-09 Intake limits (D13)
-- **Behavior:** 1 to 4 reference images, each at most 4 MB, PNG/JPEG/WebP sniffed from the bytes,
-  at least 64 px per side. Raw intent fields at most 500 characters; clean values at most 200.
-  Fields outside the three-field contract are dropped silently; wrong types are rejected.
+- **Behavior:** 1 to 4 reference images (owner-confirmed, O-05), each at most 4 MB, PNG/JPEG/WebP
+  sniffed from the bytes, at least 64 px per side. Raw intent fields at most 500 characters;
+  clean values at most 200. Fields outside the three-field contract are dropped silently; wrong
+  types are rejected.
+- **HEIC (owner-approved, O-05):** a reference whose bytes are HEVC-coded HEIF (`src/heic.ts`)
+  is decoded and re-encoded as JPEG before the checks above: input at most 20 MB and 50 M
+  pixels, output longest side at most 2048 px, quality 90. Re-encoding drops all metadata,
+  including EXIF location. Only the first top-level image in the file is used. A declared MIME
+  type must be `image/heic` or `image/heif`. A file that cannot be decoded ends the run as
+  `invalid_references` before any model call.
+- **Dependency note:** decoding uses `heic-decode` 2.1.0 (ISC) over `libheif-js` 1.23.5
+  (LGPL-3.0, libheif and libde265 compiled to WebAssembly); encoding uses `jpeg-js` 0.4.4
+  (BSD-3-Clause). LGPL obligations and HEVC patent licensing for a commercial service have not
+  been reviewed.
+- **Measured (this container, Node 22):** a synthetic 12 MP (4032 x 3024) HEIC converted in
+  about 3.4 s, with process memory around 340 MB. Tested only with libheif-encoded fixtures, not
+  with files from an iPhone (which use tiled grid images and rotation).
 - **Why these numbers:** none come from R1. Four is the lower of the documented character
-  reference limits (Nano Banana 2.1: 4, Pro: 5). HEIC is not accepted, which matters for
-  iPhone uploads.
-- **Tests:** `engine.test.ts` AC-05, intake; `images.test.ts`.
+  reference limits (Nano Banana 2.1: 4, Pro: 5). 2048 px matches the analyzer's high-detail
+  input size.
+- **Tests:** `engine.test.ts` AC-05, intake; `images.test.ts`; `heic.test.ts`.
 
 ### P-10 Providers and models (D12), checked 2026-10-28
 - **Generator:** `@google/genai` 2.31.0, `models.generateContent`, default model
@@ -145,9 +198,9 @@ Two kinds of entries:
 
 | ID | Question | Conflicting sources | Recommendation | Blocks |
 |----|----------|---------------------|----------------|--------|
-| O-01 (D01) | Strict single-frame v1, or a separately versioned multi-frame board product? | R1 p.1 "not a vision board"; later user request for about 7-10 images compiled into a board (C2, Jan 4-5) | Keep the engine single-frame. Decide the commercial envelope (frame count, whether each frame keeps every v1 rule, pricing) as a recorded v2 change before any checkout, bundle, collage, or UI work. | Checkout, bundles, board assembly, UI scope |
-| O-02 (D06) | What does "quality degrades with retries" mean in practice? | R1 §7 requires the stop but gives no metric, threshold, or judge; an invented score was removed in C1 | Define a small labeled rubric with examples, then a temporal rule such as "a later candidate rated worse than an earlier one on the rubric". | AC-11; any claim of full R1 compliance |
-| O-03 (D04) | When a cosmetic refinement fails, may the earlier QA-passing base be delivered? | R1 System Flow 6 "fall back to generation loop"; System Flow 7 "A frame passes QA → delivered" | Today's code follows step 6 literally (P-02). Delivering the passing base would save spend and still meet every discard rule. | Nothing; a one-branch change either way |
+| O-01 (D01) | Strict single-frame v1, or a separately versioned multi-frame board product? | R1 p.1 "not a vision board"; later user request for about 7-10 images compiled into a board (C2, Jan 4-5) | **Decided 2026-10-29: a board made of frames** (see Owner decisions). Open: owner approval of the v2 board spec that turns these answers into a design. | Checkout, bundles, board assembly, UI scope |
+| O-02 (D06) | What does "quality degrades with retries" mean in practice? | R1 §7 requires the stop but gives no metric, threshold, or judge; an invented score was removed in C1 | **Approach decided 2026-10-29:** define it from owner-marked live test images. The rubric itself is still open. | AC-11; any claim of full R1 compliance |
+| O-03 (D04) | When a cosmetic refinement fails, may the earlier QA-passing base be delivered? | R1 System Flow 6 "fall back to generation loop"; System Flow 7 "A frame passes QA → delivered" | **Decided 2026-10-29: yes** (V2-01). | Nothing |
 | O-04 (D11) | What should a user see when a run ends for technical or payment reasons? | R1 §7 "System stops silently"; C3 suggested "No frame generated"; paid orders are unspecified | Keep policy stops silent. Give technical and payment failures a neutral, non-coaching state and a defined refund or retry policy. | Public UI, payments |
-| O-05 (D13) | Upload policy and likeness bar | R1 requires references; C2 suggests 3-4 photos and tolerates some variation | Confirm count, size, formats (HEIC?), consent copy, and a reviewed set of "same person / drifted" examples. | Public upload; AC-18 |
+| O-05 (D13) | Upload policy and likeness bar | R1 requires references; C2 suggests 3-4 photos and tolerates some variation | **Partly decided 2026-10-29:** 1 to 4 photos, HEIC accepted. Open: consent copy and a reviewed set of "same person / drifted" examples. | Public upload; AC-18 |
 | O-06 (AC-17) | Authorize a bounded live smoke test | Handoff §15: no paid calls until inputs and a budget are set | One or a few runs of `npm run frame -- --live` with consented reference photos; each run is capped at 3 generations, 2 refinements, and one analysis per candidate. | Verifying real generation, refinement, and analysis |

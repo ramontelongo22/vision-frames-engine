@@ -6,6 +6,73 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-10-29: owner decisions, refinement fallback (V2-01), HEIC references
+
+**Branch:** `claude/engine-defects` (PR #1), from `2c8fa30`.
+**Inputs:** Rob answered decision cards in the project thread on 2026-10-29. Each answer is
+recorded in `docs/DECISIONS.md` under Owner decisions.
+
+### Decisions recorded
+- O-01: a board made of frames, in tiers of 3, 7 and 9 frames. Every frame keeps all v1 rules.
+  The customer lists a few places. Frames that fail are refunded, with no extra attempts. The
+  download is each frame plus a board image. A v2 board spec comes next for approval; no board
+  code yet.
+- O-03 plus a follow-up card: V2-01. A QA-passing frame is delivered when its refinements
+  fail, including when a refinement trips a hard stop.
+- O-02: the quality rubric will be defined from owner-marked live test images.
+- O-05: keep 1 to 4 photos and accept HEIC.
+- Audience: a few friendly testers soon.
+
+### What changed
+- `src/engine.ts`: `refinementPhase` delivers the base once no refinement passes, instead of
+  falling back to generation. `RunState.applyQA` and `stopIfFatal` deliver the base when a hard
+  stop or a fatal provider failure happens during a refinement. Cancellation still ends with
+  nothing. The new event `refinement_abandoned` records the cause and replaces
+  `refinement_fallback`. The engine now converts HEIC references before validating them.
+- `src/heic.ts` (new): HEIC detection from `ftyp` brands (AVIF excluded), decode via
+  `heic-decode`/`libheif-js` (WebAssembly, loaded on first use), area-average downscale to
+  2048 px, and JPEG encode via `jpeg-js`. Never throws.
+- `src/intake.ts`: `convertHeicReferences`. `src/config.ts`: `LIMITS.heicReference`.
+  `src/types/heic-decode.d.ts`: typings. `src/index.ts` exports `convertHeicToJpeg` and `isHeic`.
+- `package.json`: `heic-decode` 2.1.0 and `jpeg-js` 0.4.4 pinned exactly.
+- Tests: refinement and hard-stop expectations in `engine.test.ts` updated to V2-01, plus a new
+  "O-03" block (fatal and transient refinement failures, invalid analysis, cancellation,
+  generation-only hard stop). New `tests/heic.test.ts` with two libheif-encoded fixtures in
+  `tests/fixtures/` (made with pillow-heif 1.8.1 / libheif 1.23.6 / x265).
+- Docs: `DECISIONS.md` (Owner decisions, V2-01, P-02, P-03, P-05, P-09, open table),
+  `TRACEABILITY.md`, `README.md`, `CLAUDE.md` (board scope note).
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Full pipeline | `npm run verify` | exit 0 |
+| Tests | (in verify) | 9 suites passed; 242 passed, 1 todo (AC-11, blocked) |
+| Lint | `npm run lint` | 0 problems |
+| Import | `npm run check:import` | `package import ok` |
+| Mock runner | `npm run smoke:mock` | `public outcome: delivered`; `success, generations 1/3, refinements 1/2` |
+| Coverage | `npx jest --coverage --runInBand` | statements 92.4%, branches 84.1%, functions 94.5%, lines 92.2%; `heic.ts` 100% |
+| Runtime audit | `npm audit --omit=dev` | 0 vulnerabilities |
+| HEIC timing | one-off Node script on the built package | 160x120: 169 ms. Synthetic 4032x3024 (10.6 MB, noise): 3.4 s, output 2048x1536 JPEG of 1.6 MB, process memory about 340 MB |
+
+Under Jest the pure-JS downscale loop runs about 20 times slower than under plain Node
+(5.1 s against 0.22 s for a 2600x1950 image), so the downscale fixture is a wide 2600x200
+image to keep the suite fast. Production code runs under plain Node.
+
+### Not verified
+- No live provider call yet (O-06 still open).
+- HEIC tested only with libheif-encoded files. Photos from an iPhone, which use tiled grid
+  images and rotation boxes, have not been tried.
+- LGPL-3.0 (libheif-js) obligations and HEVC patent licensing for a paid service have not
+  been reviewed.
+
+### Next action
+1. Draft the v2 board spec from the answers above for owner approval.
+2. Owner: O-06 live test (keys as environment secrets, `api.openai.com` allowed, 1 to 4
+   consented photos, ideally including one HEIC straight from an iPhone).
+3. After the live test: owner marks better and worse frames to define the O-02 rubric.
+
+---
+
 ## 2026-10-28: engine defect repair, provider adapters, packaging
 
 **Branch:** `claude/engine-defects`, from `main` at `5508e945b58e4f32743d741b4e8932491a14123d`
