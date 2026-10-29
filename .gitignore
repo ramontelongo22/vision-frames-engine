@@ -28,3 +28,6 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+
+# Local runner output (frames and run records)
+out/
