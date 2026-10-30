@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -13,12 +13,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src tests --ext .ts",
+    "lint": "eslint src tests",
     "clean": "rm -rf dist",
     "check:import": "node -e \"const vf = require('./'); if (typeof vf.VisionFramesEngine !== 'function') { process.exit(1); } console.log('package import ok');\"",
     "frame": "node dist/runner.js",
     "verify": "npm run typecheck && npm run build && npm test -- --runInBand && npm run lint && npm run check:import && npm run smoke:mock && npm run smoke:board",
-    "smoke:mock": "node dist/runner.js --mock --scenario refine --identity \"calm, grounded\" --out out/smoke",
+    "smoke:mock": "node dist/runner.js --mock --scenario refine --ref tests/fixtures/reference-160x120.heic --identity \"calm, grounded\" --out out/smoke && node -e \"process.exit(require('./out/smoke/run.json').exitReason === 'success' ? 0 : 1)\"",
     "smoke:board": "node dist/runner.js --mock --board 7 --scenario partial --concurrency 1 --identity \"calm, grounded\" --place \"a quiet street at dusk\" --out out/smoke-board"
   },
   "keywords": [
@@ -37,14 +37,14 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.11",
-    "@types/node": "^20.10.6",
+    "@eslint/js": "10.0.1",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
     "@types/pngjs": "6.0.5",
-    "@typescript-eslint/eslint-plugin": "^6.17.0",
-    "@typescript-eslint/parser": "^6.17.0",
-    "eslint": "^8.56.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.1",
-    "typescript": "^5.3.3"
+    "eslint": "10.14.0",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
   }
 }

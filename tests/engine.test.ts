@@ -6,6 +6,7 @@
  * audit probes that reproduced the baseline defects (F03-F07, F09, F11).
  */
 
+import { VisionFramesEngine } from '../src/engine';
 import { ProviderError } from '../src/errors';
 import { buildCanonicalPrompt, CANONICAL_PROMPT_V1 } from '../src/promptBuilder';
 import { normalize } from '../src/normalize';
@@ -604,7 +605,7 @@ describe('VisionFramesEngine', () => {
 
   describe('silent operation', () => {
     it('never throws, even when a model is not implemented', async () => {
-      const engine = new (await import('../src/engine')).VisionFramesEngine(
+      const engine = new VisionFramesEngine(
         {} as never,
         {} as never,
         references()

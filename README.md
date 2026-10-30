@@ -26,7 +26,8 @@ Details: [`docs/PROGRESS.md`](docs/PROGRESS.md) (what was run and what it showed
 
 ## Setup
 
-Requires Node 22 or newer.
+Requires Node 24 or newer. CI runs the same `npm run verify` on Node 24 and 26 for every pull
+request.
 
 ```bash
 npm ci

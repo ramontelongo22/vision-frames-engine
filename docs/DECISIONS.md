@@ -306,6 +306,27 @@ in the project thread, after each card set out the conflicting sources and a rec
   slightly differently in each frame. The alternative is one call for identity and mood per
   board plus deterministic filtering only for places. Revisit with live-test costs.
 
+### P-16 Toolchain and CI, checked 2026-10-30
+- **Node 24 or newer** (`engines`), tested in CI on Node 24 and 26. Node 26 is the current LTS
+  and Node 22 has about six months of support left.
+- **TypeScript 6.0.3, not 7.** TypeScript 7 ships no compiler API, and ts-jest 29.4.15 needs
+  TypeScript below 7. TypeScript 6 deprecates `moduleResolution: node`, so the project uses
+  `module: node20` with `moduleResolution: node16`, which resolve packages the way Node does.
+  The compiled package is still CommonJS.
+- **Dynamic import of `heic-decode`:** under `node20` the build keeps the native `import()`.
+  ts-jest compiles tests as CommonJS instead, so in tests it becomes `require()`. ts-jest warns
+  about this (code 151002), and `jest.config.js` silences only that code. To cover the built
+  form, `smoke:mock` runs the compiled runner with a HEIC reference and fails unless the run
+  succeeds.
+- **ESLint 10 with a flat config** (`eslint.config.js`, `typescript-eslint` 8.72.1), same three
+  rule settings as before. **Jest 30.5.2**, ts-jest 29.4.15.
+- **CI** (`.github/workflows/ci.yml`): `npm ci`, `npm run verify` and `npm audit --omit=dev` on
+  every pull request and every push to `main`. Mock providers only: no keys, no paid calls.
+- **Known audit finding:** `npm audit` reports 6 low-severity findings, all from `deepmerge`
+  inside Jest's config loader (GHSA-gcqx-w48m-w2h4). There is no fixed `deepmerge` release,
+  and the only fix npm offers is a downgrade to Jest 25. It is a development dependency and
+  never ships. `npm audit --omit=dev` is 0, and CI enforces that.
+
 ## Open owner decisions
 
 | ID | Question | Conflicting sources | Recommendation | Blocks |
