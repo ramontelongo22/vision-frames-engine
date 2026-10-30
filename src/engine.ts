@@ -17,7 +17,7 @@
 import { CONFIG, LIMITS } from './config';
 import { FATAL_FAILURE_KINDS, ProviderFailureKind, failureKindOf } from './errors';
 import { CandidateImage, ImagePayload, ReferenceImage, validateImageBytes } from './images';
-import { convertHeicReferences, prepareReferences, validateRawInput } from './intake';
+import { prepareReferences, reencodeReferences, validateRawInput } from './intake';
 import { normalize } from './normalize';
 import { buildCanonicalPrompt } from './promptBuilder';
 import { ViolationCode, checkQAGate, validateAnalysisReport } from './qaGate';
@@ -296,7 +296,7 @@ export class VisionFramesEngine {
       run.record({ type: 'fields_dropped', count: intake.droppedFieldCount });
     }
 
-    const conversion = await convertHeicReferences(this.referenceImages);
+    const conversion = await reencodeReferences(this.referenceImages);
     if (!conversion.ok) {
       run.record({ type: 'references_rejected', reason: conversion.reason });
       run.stop('invalid_references');

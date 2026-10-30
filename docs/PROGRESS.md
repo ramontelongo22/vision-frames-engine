@@ -6,6 +6,50 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-10-30: hardening from the model and code audit; language cleanup on by default (V2-03)
+
+**Branch:** `claude/hardening`, from `d75db95` on `claude/boards` (PR #2).
+**Inputs:** the model and code audit (https://claude.ai/artifact/BaBZTB8f99kmAQk1gwokN6). Rob
+chose "Hardening and tooling PRs" and "On by default, gpt-6-luna" on decision cards. No paid
+calls, no deployment.
+
+### What changed
+- `src/photo.ts` (new): every JPEG, PNG or WebP reference is re-encoded with `sharp` 0.35.5 as an
+  upright JPEG, at most 2048 px, with all metadata removed (P-09). Before, these went to both
+  providers byte for byte, GPS location included, and anything over 4 MB was rejected.
+- `src/intake.ts`: `reencodeReferences` (was `convertHeicReferences`) re-encodes HEIC and every
+  other format; uploads up to 20 MB and 50 M pixels. `src/config.ts`: `LIMITS.referenceUpload`
+  (was `heicReference`). A board re-encodes once and frames reuse the prepared references.
+- `src/nanoBananaModel.ts`: `automaticContinuation: false` (the SDK's default would resend a
+  billed request on finish reason `CONTINUATION`); a `CONTINUATION` reply is a failed attempt;
+  `responseModalities: ['IMAGE']`. `@google/genai` 2.31.0 to 2.32.0.
+- `src/openAISemanticNormalizer.ts`: own default model `gpt-6-luna` (V2-03).
+  `src/runner.ts`: language cleanup on by default in live mode, `--no-semantic` turns it off.
+- Tests: `tests/photo.test.ts` and `tests/sdkClients.test.ts` (new; the real Gemini and OpenAI
+  SDK clients against a stubbed fetch); updates to engine, board, HEIC and adapter suites.
+- Docs: DECISIONS V2-03, P-04, P-09, P-10, P-12, P-15; README; TRACEABILITY; `.env.example`.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Full pipeline | `npm run verify` | exit 0 |
+| Tests | `npm test -- --runInBand` | 15 suites passed; 333 passed, 1 todo (AC-11, blocked) |
+| Coverage | `npx jest --coverage` | lines 95.5%, branches 88.2%; `photo.ts` 100% |
+| Continuation guard | `sdkClients.test.ts` with `automaticContinuation: false` removed | the CONTINUATION test fails (the SDK sends a second request), so the test detects the problem |
+| Runtime audit | `npm audit --omit=dev` | 0 vulnerabilities |
+
+### Gaps
+- Still no live call: whether Gemini accepts image-only output for `gemini-3-pro-image`, and how
+  `gpt-6-luna` cleans real inputs, are unverified until the live test (O-06).
+- Re-encoding was tested with sharp-made fixtures, not with photos from real phones.
+- `sharp` is a native binary per platform; the lockfile carries the prebuilt packages for macOS,
+  Linux and Windows.
+
+### Next action
+1. Tooling PR (stacked on this one): CI, Node 24/26, TypeScript 6, ESLint 10, Jest 30.
+2. Owner: O-06 live test, starting with one QA call on a consented photo pair, on a paid Gemini
+   project.
+
 ## 2026-10-30: v2 boards (V2-02), built and tested with mock models
 
 **Branch:** `claude/boards`, from `e45ca16` on `claude/engine-defects` (PR #1).

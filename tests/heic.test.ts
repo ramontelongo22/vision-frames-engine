@@ -14,7 +14,7 @@ import { decode as decodeJpeg } from 'jpeg-js';
 import { LIMITS } from '../src/config';
 import { convertHeicToJpeg, isHeic } from '../src/heic';
 import { validateImageBytes } from '../src/images';
-import { convertHeicReferences } from '../src/intake';
+import { reencodeReferences } from '../src/intake';
 import { expectCleanTermination, harness, jpeg, pass, png, references } from './helpers';
 
 afterEach(() => jest.restoreAllMocks());
@@ -83,12 +83,12 @@ describe('convertHeicToJpeg', () => {
   });
 
   it('refuses files over the input byte limit without decoding', async () => {
-    const result = await convertHeicToJpeg(small, { ...LIMITS.heicReference, maxInputBytes: 100 });
+    const result = await convertHeicToJpeg(small, { ...LIMITS.referenceUpload, maxInputBytes: 100 });
     expect(result).toEqual({ ok: false, error: 'too_large' });
   });
 
   it('refuses images over the pixel limit', async () => {
-    const result = await convertHeicToJpeg(large, { ...LIMITS.heicReference, maxPixels: 500_000 });
+    const result = await convertHeicToJpeg(large, { ...LIMITS.referenceUpload, maxPixels: 500_000 });
     expect(result).toEqual({ ok: false, error: 'too_large' });
   });
 
@@ -101,32 +101,34 @@ describe('convertHeicToJpeg', () => {
   });
 });
 
-describe('convertHeicReferences', () => {
-  it('converts HEIC entries and leaves other images untouched', async () => {
+describe('reencodeReferences with HEIC', () => {
+  it('converts HEIC entries with heic.ts and other images with photo.ts', async () => {
     const other = references(1)[0];
-    const result = await convertHeicReferences([{ bytes: small }, other]);
+    const result = await reencodeReferences([{ bytes: small }, other]);
     if (!result.ok) throw new Error(result.reason);
 
-    expect(result.convertedCount).toBe(1);
-    const [converted, untouched] = result.references as Array<{ bytes: Uint8Array; mimeType: string }>;
+    expect(result.convertedCount).toBe(2);
+    const [converted, reencoded] = result.references as Array<{ bytes: Uint8Array; mimeType: string }>;
     expect(converted.mimeType).toBe('image/jpeg');
-    expect(untouched).toBe(other);
+    expect(validateImageBytes(converted.bytes, 'image/jpeg', LIMITS.reference)).toMatchObject({ ok: true, image: { width: 160, height: 120 } });
+    expect(reencoded.mimeType).toBe('image/jpeg');
+    expect(reencoded.bytes).not.toBe(other.bytes);
   });
 
   it.each(['image/heic', 'image/HEIF', 'image/heic; charset=binary'])('accepts a declared %s type', async (mimeType) => {
-    const result = await convertHeicReferences([{ bytes: small, mimeType }]);
+    const result = await reencodeReferences([{ bytes: small, mimeType }]);
     expect(result.ok).toBe(true);
   });
 
   it('rejects HEIC bytes declared as another type', async () => {
-    const result = await convertHeicReferences([{ bytes: small, mimeType: 'image/png' }]);
+    const result = await reencodeReferences([{ bytes: small, mimeType: 'image/png' }]);
     expect(result).toEqual({ ok: false, reason: 'reference 1 failed validation: mime_mismatch' });
   });
 
   it('passes through input that reference validation rejects anyway', async () => {
     const tooMany = Array.from({ length: LIMITS.maxReferenceImages + 1 }, () => ({ bytes: small }));
     for (const raw of ['not an array', tooMany]) {
-      const result = await convertHeicReferences(raw);
+      const result = await reencodeReferences(raw);
       expect(result).toEqual({ ok: true, references: raw, convertedCount: 0 });
     }
   });
@@ -140,10 +142,10 @@ describe('engine with HEIC references', () => {
     const result = await h.engine.execute(input);
 
     expect(result.exitReason).toBe('success');
-    expect(result.events).toContainEqual({ type: 'references_converted', count: 1 });
+    expect(result.events).toContainEqual({ type: 'references_converted', count: 2 });
     for (const call of [h.generateCalls[0], h.analyzeCalls[0]]) {
       expect(call.references[0]).toMatchObject({ id: 'ref-1', mimeType: 'image/jpeg', width: 160, height: 120 });
-      expect(call.references[1]).toMatchObject({ id: 'ref-2', mimeType: 'image/png' });
+      expect(call.references[1]).toMatchObject({ id: 'ref-2', mimeType: 'image/jpeg', width: 200, height: 300 });
     }
     expectCleanTermination(result, h);
   });

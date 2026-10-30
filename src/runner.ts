@@ -11,12 +11,13 @@
  *
  *   Live provider calls (paid; needs GEMINI_API_KEY and OPENAI_API_KEY):
  *     npm run frame -- --live --ref me-1.jpg --ref me-2.jpg --identity "calm, grounded" \
- *       [--environment "a quiet street at dusk"] [--mood "steady"] [--semantic] [--out out/run-1]
+ *       [--environment "a quiet street at dusk"] [--mood "steady"] [--no-semantic] [--out out/run-1]
  *     npm run frame -- --live --board 3 --ref me-1.jpg --identity "calm, grounded" [--place "..." ...]
  *
  * Live mode never starts without the explicit --live flag. One frame makes at most
- * 3 generation calls, 2 refinement calls, one analysis per candidate, and (with
- * --semantic) one normalization call; a board makes up to that for every frame.
+ * 3 generation calls, 2 refinement calls, one analysis per candidate, and one language
+ * cleanup call (on by default, V2-03; --no-semantic turns it off); a board makes up to
+ * that for every frame. Mock mode never makes the cleanup call.
  *
  * Mock analyzer scripts are shared by every frame of a board in call order, so the
  * partial and quota scenarios split predictably only with --concurrency 1.
@@ -93,6 +94,7 @@ function packageVersion(name: string): string | undefined {
 
 async function main(): Promise<number> {
   const { values } = parseArgs({
+    allowNegative: true,
     options: {
       mock: { type: 'boolean', default: false },
       live: { type: 'boolean', default: false },
@@ -101,7 +103,8 @@ async function main(): Promise<number> {
       identity: { type: 'string' },
       environment: { type: 'string' },
       mood: { type: 'string' },
-      semantic: { type: 'boolean', default: false },
+      // Language cleanup is on by default in live mode (V2-03); --no-semantic turns it off
+      semantic: { type: 'boolean', default: true },
       board: { type: 'string' },
       place: { type: 'string', multiple: true, default: [] },
       concurrency: { type: 'string' },
@@ -113,7 +116,8 @@ async function main(): Promise<number> {
   if (values.help || values.mock === values.live) {
     console.error('Usage: npm run frame -- (--mock | --live) --identity "..." [--ref file ...] [--environment "..."] [--mood "..."] [--out dir]');
     console.error('       npm run frame -- (--mock | --live) --board 3|7|9 --identity "..." [--place "..." ...] [--concurrency n]');
-    console.error('Exactly one of --mock or --live is required. --live makes paid provider calls.');
+    console.error('Exactly one of --mock or --live is required. --live makes paid provider calls,');
+    console.error('including one language cleanup call per frame unless --no-semantic is given.');
     return 2;
   }
 

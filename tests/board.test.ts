@@ -628,6 +628,27 @@ describe('references', () => {
     expect(seen).toEqual(['image/jpeg', 'image/jpeg', 'image/jpeg']);
   });
 
+  it('re-encodes every reference once and sends every frame the same bytes', async () => {
+    const fake = fakeModels();
+    const seen: Uint8Array[][] = [];
+    const generate = fake.generator.generate.bind(fake.generator);
+    fake.generator.generate = (call) => {
+      seen.push(call.references.map((reference) => reference.bytes));
+      return generate(call);
+    };
+    const result = await board(fake, { concurrency: 1 }).execute({ size: 3, identityDirection: IDENTITY });
+
+    expect(eventsOf(result, 'references_converted')).toEqual([{ type: 'references_converted', count: 2 }]);
+    for (const frame of result.frames) {
+      expect(frame.result?.events.some((e) => e.type === 'references_converted')).toBe(false);
+    }
+    expect(seen).toHaveLength(3);
+    for (const bytes of seen) {
+      expect(bytes[0]).toBe(seen[0][0]);
+      expect(bytes[1]).toBe(seen[0][1]);
+    }
+  });
+
   it('ends before any frame when a HEIC reference cannot be decoded', async () => {
     jest.spyOn(console, 'log').mockImplementation(() => undefined); // libheif logs parse errors
     const heic = readFileSync(join(__dirname, 'fixtures', 'reference-160x120.heic'));

@@ -89,12 +89,13 @@ describe('NanoBananaImageGenerationModel', () => {
       expect(Buffer.from(payload.bytes).equals(png(320, 180))).toBe(true);
     });
 
-    it('disables provider-side request storage and asks for 16:9 image output', async () => {
+    it('disables provider-side request storage and automatic continuation, and asks for one 16:9 image only', async () => {
       const client = new CapturingClient(() => imageResponse(png()));
       await new NanoBananaImageGenerationModel({ client }).generate({ prompt, references: [refA] });
 
       expect(client.requests[0].config?.store).toBe(false);
-      expect(client.requests[0].config?.responseModalities).toEqual(['TEXT', 'IMAGE']);
+      expect(client.requests[0].config?.automaticContinuation).toBe(false);
+      expect(client.requests[0].config?.responseModalities).toEqual(['IMAGE']);
       expect(client.requests[0].config?.imageConfig).toEqual({ aspectRatio: '16:9' });
     });
 
@@ -211,6 +212,19 @@ describe('extractImage', () => {
     ['a blocked prompt', { promptFeedback: { blockReason: 'PROHIBITED_CONTENT' } }, 'refusal'],
     ['an image safety stop', { candidates: [{ finishReason: 'IMAGE_SAFETY', content: { parts: [] } }] }, 'refusal'],
     ['a NO_IMAGE stop', { candidates: [{ finishReason: 'NO_IMAGE', content: { parts: [] } }] }, 'no_image'],
+    [
+      'an unfinished CONTINUATION reply, even one that carries an image',
+      {
+        candidates: [
+          {
+            finishReason: 'CONTINUATION',
+            continuationToken: 'dG9rZW4=',
+            content: { parts: [{ inlineData: { mimeType: 'image/png', data: png().toString('base64') } }] },
+          },
+        ],
+      },
+      'invalid_response',
+    ],
   ])('fails on %s and never returns an image', (_label, response, kind) => {
     expect(() => extractImage(response)).toThrow(ProviderError);
     try {

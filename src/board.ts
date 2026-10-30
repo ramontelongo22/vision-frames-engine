@@ -32,7 +32,7 @@ import {
   VisionFramesEngine,
 } from './engine';
 import { FATAL_FAILURE_KINDS } from './errors';
-import { convertHeicReferences, prepareReferences, validateRawInput } from './intake';
+import { prepareReferences, reencodeReferences, validateRawInput } from './intake';
 import { normalize } from './normalize';
 import { RawInput } from './schema';
 
@@ -206,8 +206,9 @@ export class VisionFramesBoard {
       events.push({ type: 'fields_dropped', count: intake.droppedFieldCount });
     }
 
-    // References are converted and checked once for the whole board
-    const conversion = await convertHeicReferences(this.referenceImages);
+    // References are re-encoded and checked once for the whole board; every frame gets
+    // the same prepared references, which its run does not re-encode again
+    const conversion = await reencodeReferences(this.referenceImages);
     if (!conversion.ok) {
       events.push({ type: 'references_rejected', reason: conversion.reason });
       return 'invalid_references';
@@ -220,7 +221,7 @@ export class VisionFramesBoard {
       events.push({ type: 'references_rejected', reason: referenceIntake.reason });
       return 'invalid_references';
     }
-    const references = conversion.references as unknown[];
+    const references = referenceIntake.references;
 
     // Without a semantic normalizer every frame would stop on the same empty identity,
     // so end here instead. With one, each frame's normalization decides (P-08).
