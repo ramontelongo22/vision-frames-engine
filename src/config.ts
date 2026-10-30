@@ -57,3 +57,23 @@ export const LIMITS = {
   /** Clean Intent value length after normalization */
   maxCleanFieldLength: 200,
 } as const;
+
+/**
+ * v2 boards (docs/DECISIONS.md V2-02). The sizes are the owner's decision; everything
+ * else is a provisional engineering setting to confirm after the live test.
+ */
+export const BOARD = {
+  sizes: [3, 7, 9],
+  /** Frames running at once; proposed as 3 until the live test shows provider limits */
+  concurrency: 3,
+  image: {
+    /** Each frame is scaled to fill a 16:9 cell this wide; overflow is cropped evenly */
+    cellWidth: 960,
+    cellAspect: 16 / 9,
+    gutter: 24,
+    margin: 48,
+    /** RGB, warm off-white */
+    background: [245, 243, 238],
+    jpegQuality: 90,
+  },
+} as const;

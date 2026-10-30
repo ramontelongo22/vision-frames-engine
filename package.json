@@ -17,8 +17,9 @@
     "clean": "rm -rf dist",
     "check:import": "node -e \"const vf = require('./'); if (typeof vf.VisionFramesEngine !== 'function') { process.exit(1); } console.log('package import ok');\"",
     "frame": "node dist/runner.js",
-    "verify": "npm run typecheck && npm run build && npm test -- --runInBand && npm run lint && npm run check:import && npm run smoke:mock",
-    "smoke:mock": "node dist/runner.js --mock --scenario refine --identity \"calm, grounded\" --out out/smoke"
+    "verify": "npm run typecheck && npm run build && npm test -- --runInBand && npm run lint && npm run check:import && npm run smoke:mock && npm run smoke:board",
+    "smoke:mock": "node dist/runner.js --mock --scenario refine --identity \"calm, grounded\" --out out/smoke",
+    "smoke:board": "node dist/runner.js --mock --board 7 --scenario partial --concurrency 1 --identity \"calm, grounded\" --place \"a quiet street at dusk\" --out out/smoke-board"
   },
   "keywords": [
     "vision-frames",
@@ -31,11 +32,13 @@
     "@google/genai": "2.31.0",
     "heic-decode": "2.1.0",
     "jpeg-js": "0.4.4",
-    "openai": "7.45.1"
+    "openai": "7.45.1",
+    "pngjs": "7.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.6",
+    "@types/pngjs": "6.0.5",
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",

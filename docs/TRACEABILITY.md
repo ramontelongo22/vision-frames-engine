@@ -4,7 +4,7 @@ Status values: **PASS** (automated test passes in this repo), **PASS (mock)** (c
 request shape proven with mocks; says nothing about live model quality), **BLOCKED** (needs an
 owner decision), **NOT VERIFIED** (needs a live or human check that has not happened).
 
-Last updated 2026-10-29 on branch `claude/engine-defects`. See `docs/PROGRESS.md` for the
+Last updated 2026-10-30 on branch `claude/boards` (built on `claude/engine-defects`). See `docs/PROGRESS.md` for the
 commands and output behind each PASS.
 
 ## Acceptance criteria (handoff §11)
@@ -29,14 +29,14 @@ commands and output behind each PASS.
 | AC-16 | Clean install from lockfile; build, tests, lint pass; package import; mock runner artifact | PASS | `npm ci && npm run verify` (see PROGRESS.md) |
 | AC-17 | Bounded live run proving generate, QA, success or stop, and a real edit | NOT VERIFIED (O-06) | Runner `--live` writes `run.json` with model ids, versions, timings, usage. Not run: needs approval, keys, consented photos, and network access to api.openai.com |
 | AC-18 | Owner-reviewed quality evaluation set | NOT VERIFIED (O-02, O-05) | None yet |
-| AC-19 | User flow (upload, progress, download, clean stop) | NOT STARTED | Owner chose a board (O-01) and friendly testers next; private upload page comes after the live test and spec approval |
+| AC-19 | User flow (upload, progress, download, clean stop) | NOT STARTED | Board engine exists (V2-02); the private tester page comes after the live test |
 | AC-20 | Release evidence | NOT MET | AC-11, AC-17, AC-18 open; O-01 to O-06 open |
 
 ## Locked requirements (handoff §4)
 
 | RQ | Where it is enforced | Status |
 |----|----------------------|--------|
-| RQ-01 single still image, not a board | Engine delivers one frame per run | PASS for the engine. The owner chose a board product built from v1 frames (O-01); v2 spec pending |
+| RQ-01 single still image, not a board | Engine delivers one frame per run | PASS for the engine. Changed for v2 by V2-02: a board is assembled from independent v1 frame runs |
 | RQ-02 language framing | `normalize.ts` disallowed framing; canonical text kept verbatim (D10) | PASS (deterministic) |
 | RQ-03 intake boundary | `intake.ts`, `prepareReferences` | PASS |
 | RQ-04 silent semantic normalization | `normalize.ts`, `semanticNormalizer.ts`, `openAISemanticNormalizer.ts` | PASS (mock); live LLM NOT VERIFIED |
@@ -49,6 +49,25 @@ commands and output behind each PASS.
 | RQ-11 hard stops | `RunState.applyQA` (likeness, repeat); a stop during refinement delivers the base (V2-01); quality stop BLOCKED | PARTIAL (O-02) |
 | RQ-12 silent exit | `delivery.ts` | PASS at engine boundary; UI wording O-04 |
 | RQ-13 claims and versioning | Normalizer removes status/outcome terms; this log records every clarification | PASS (deterministic) |
+
+## v2 boards (V2-02)
+
+| Requirement from the approved spec | Where it is enforced | Status | Evidence |
+|------------------------------------|----------------------|--------|----------|
+| Sizes 3, 7 and 9 only | `BOARD.sizes`, `isBoardSize`, board intake | PASS | `boardPlaces.test.ts` isBoardSize; `board.test.ts` board intake |
+| Each frame is one full, independent v1 run with its own caps | `VisionFramesBoard` runs a new `VisionFramesEngine` per frame | PASS (mock) | `board.test.ts` "own 3 generations", "own 2 refinements" |
+| Shared photos, identity and mood; the frame's place as its environment | `VisionFramesBoard.run` | PASS (mock) | `board.test.ts` "shared photos", "identity and mood into every frame prompt" |
+| Hard stops count within a frame only; V2-01 per frame | Engine `RunState` per frame | PASS (mock) | `board.test.ts` "hard stops within a frame only", "keeps each passed frame" |
+| Up to one place per frame, filtered like the environment field; a place filtered to nothing is a blank | `validatePlaces`, `planPlaces`; each frame's engine run filters its place | PASS | `boardPlaces.test.ts`; `board.test.ts` "filters down to nothing" |
+| Blanks filled from the owner's list with no repeats; typed places may repeat; typed first | `planPlaces`, `assertUsableSettings` | PASS | `boardPlaces.test.ts` |
+| Settings list approved by the owner | `BOARD_SETTINGS_DRAFT` | NOT VERIFIED | Draft list; owner marks pending |
+| Missing frames left off and refunded at an equal share; no extra attempts | `BoardResult.refundedCount`; runner `refundDue` | PASS (mock) | `board.test.ts` "leaves a failed frame off" |
+| Stops starting frames only on fatal provider failure or cancellation; not-started frames refunded | `hitFatalFailure`, worker pool halt (P-14) | PASS (mock) | `board.test.ts` early end |
+| Up to 3 frames at once | `BOARD.concurrency` | PASS (mock); live limits NOT VERIFIED | `board.test.ts` frames running at once |
+| Board image of delivered frames in a grid, no text; none for a single frame | `boardGeometry`, `composeBoard` | PASS | `boardImage.test.ts` pixel geometry; `board.test.ts` board order and single frame |
+| 16:9 landscape frames | `DEFAULT_GEMINI_ASPECT_RATIO`; 16:9 cells | PASS (request shape); live output NOT VERIFIED | `nanoBananaModel.test.ts`; `boardImage.test.ts` |
+| Silence: reasons never shown; nothing passes ends like a stopped frame | `toPublicBoardOutcome` | PASS (engine boundary) | `board.test.ts` public outcome cases; events carry no customer text |
+| Cost per board measured | Runner `run.json` timings and usage | NOT VERIFIED (O-06) | No live run |
 
 ## Defect ledger (handoff §7.5)
 

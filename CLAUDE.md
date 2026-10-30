@@ -13,7 +13,8 @@
 - No paid API calls (`npm run frame -- --live`), deployments, or customer-facing messages without
   the owner's explicit approval.
 - Out of scope unless the owner approves it: video, checkout, libraries/CRUD apps, wardrobe or pose
-  controls, extra intake fields. The owner chose a board product on 2026-10-29 (`docs/DECISIONS.md`
-  Owner decisions); write no board code until the owner approves the v2 board spec.
+  controls, extra intake fields. Boards are in scope: the owner approved the v2 board spec on
+  2026-10-30 (`docs/DECISIONS.md` V2-02). Board intake is size, identity, mood and up to one place
+  per frame, nothing more. The fill-in settings list stays a draft until the owner marks it.
 - Do not invent a quality metric for the "quality degrades" stop; it stays blocked until the owner
   defines a rubric.

@@ -89,22 +89,22 @@ describe('NanoBananaImageGenerationModel', () => {
       expect(Buffer.from(payload.bytes).equals(png(320, 180))).toBe(true);
     });
 
-    it('disables provider-side request storage and asks for image output', async () => {
+    it('disables provider-side request storage and asks for 16:9 image output', async () => {
       const client = new CapturingClient(() => imageResponse(png()));
       await new NanoBananaImageGenerationModel({ client }).generate({ prompt, references: [refA] });
 
       expect(client.requests[0].config?.store).toBe(false);
       expect(client.requests[0].config?.responseModalities).toEqual(['TEXT', 'IMAGE']);
-      expect(client.requests[0].config?.imageConfig).toBeUndefined();
+      expect(client.requests[0].config?.imageConfig).toEqual({ aspectRatio: '16:9' });
     });
 
-    it('passes aspect ratio and size only when configured', async () => {
+    it('passes a configured aspect ratio and size instead of the default', async () => {
       const client = new CapturingClient(() => imageResponse(png()));
-      await new NanoBananaImageGenerationModel({ client, aspectRatio: '16:9', imageSize: '2K' }).generate({
+      await new NanoBananaImageGenerationModel({ client, aspectRatio: '3:2', imageSize: '2K' }).generate({
         prompt,
         references: [refA],
       });
-      expect(client.requests[0].config?.imageConfig).toEqual({ aspectRatio: '16:9', imageSize: '2K' });
+      expect(client.requests[0].config?.imageConfig).toEqual({ aspectRatio: '3:2', imageSize: '2K' });
     });
 
     it('forwards the run abort signal', async () => {
