@@ -10,7 +10,7 @@ export { checkQAGate, validateAnalysis, validateAnalysisReport, VIOLATION_LABELS
 export type { QAResult, ImageAnalysis, AnalysisReport, ViolationCode } from './qaGate';
 export { REFINEMENT_TYPES, buildRefinementPrompt } from './refinement';
 export type { RefinementType } from './refinement';
-export { CONFIG, LIMITS } from './config';
+export { BOARD, CONFIG, LIMITS } from './config';
 export { validateImageBytes } from './images';
 export { convertHeicToJpeg, isHeic } from './heic';
 export type { HeicConversion } from './heic';
@@ -32,8 +32,14 @@ export type {
   ImageGenerationModel,
   RefinementCall,
 } from './engine';
-export { toPublicOutcome } from './delivery';
-export type { PublicOutcome } from './delivery';
-export { NanoBananaImageGenerationModel, DEFAULT_GEMINI_IMAGE_MODEL } from './nanoBananaModel';
+export { toPublicBoardOutcome, toPublicOutcome } from './delivery';
+export type { PublicBoardOutcome, PublicImage, PublicOutcome } from './delivery';
+export { VisionFramesBoard } from './board';
+export type { BoardEvent, BoardExitReason, BoardFrame, BoardFrameStatus, BoardHalt, BoardOptions, BoardResult } from './board';
+export { BOARD_SETTINGS_DRAFT, isBoardSize, planPlaces, validatePlaces } from './boardPlaces';
+export type { BoardSize, PlannedPlace } from './boardPlaces';
+export { boardGeometry, composeBoard } from './boardImage';
+export type { BoardGeometry, BoardImageOptions, BoardImageResult } from './boardImage';
+export { NanoBananaImageGenerationModel, DEFAULT_GEMINI_ASPECT_RATIO, DEFAULT_GEMINI_IMAGE_MODEL } from './nanoBananaModel';
 export { OpenAIImageAnalysisModel, DEFAULT_OPENAI_ANALYSIS_MODEL } from './openAIAnalysisModel';
 export { OpenAISemanticNormalizer } from './openAISemanticNormalizer';

@@ -17,7 +17,7 @@ reel, fantasy, or productivity simulation.
 | OpenAI reference-aware QA analyzer | Implemented; request shape tested offline; **no live call made yet** |
 | Optional LLM normalization step | Implemented; offline tests only |
 | "Quality degrades with retries" hard stop | **Not implemented**: needs an owner-defined rubric |
-| Boards (3, 7 or 9 frames) | Chosen by the owner; v2 spec awaiting approval; no code |
+| Boards (3, 7 or 9 frames, v2) | Implemented per the approved v2 spec (V2-02); covered by mocked tests; fill-in settings list is still a draft awaiting the owner's marks |
 | UI, storage, auth, payments, deployment | None |
 
 Details: [`docs/PROGRESS.md`](docs/PROGRESS.md) (what was run and what it showed),
@@ -57,6 +57,25 @@ violation repeats (anywhere in the run). A hard stop during a refinement still d
 QA-passing image it was editing (V2-01). Every outcome other than a delivered frame looks the
 same to a user (`toPublicOutcome`).
 
+## How a board is produced (v2)
+
+```
+reference images + { size: 3 | 7 | 9, identityDirection, moodTone?, places?: up to one per frame }
+  -> references converted and checked once
+  -> places: typed places that survive the filter, in order; blanks filled from the
+     settings list with no repeats
+  -> one full v1 run per frame (above), up to 3 at a time, with that frame's place as its
+     environment preference; each frame keeps its own caps and hard stops
+  -> a fatal provider failure or cancellation stops new frames from starting
+  -> board image: delivered frames in a grid of 16:9 cells, no text (2 or more frames)
+  -> exit: delivered frames plus board image, missing frames refunded at an equal share;
+     or a silent stop when no frame passes
+```
+
+`toPublicBoardOutcome` gives the delivered frames, the board image, and how many frames were
+refunded, never why. Details and the choices the spec left open: `docs/DECISIONS.md` V2-02,
+P-14 and P-15.
+
 ## Source layout
 
 | File | Role |
@@ -67,7 +86,8 @@ same to a user (`toPublicOutcome`).
 | `src/promptBuilder.ts` | Canonical prompt constant and variable serialization |
 | `src/qaGate.ts` | Discard rules, violation codes, analysis validation |
 | `src/refinement.ts` | Permitted refinement categories and system-owned edit text |
-| `src/delivery.ts` | Public, silent outcome |
+| `src/delivery.ts` | Public, silent outcome for a frame or a board |
+| `src/board.ts`, `src/boardPlaces.ts`, `src/boardImage.ts`, `src/raster.ts` | v2 board runner, place intake and settings list, board image |
 | `src/nanoBananaModel.ts` | Gemini generate and refine adapter |
 | `src/openAIAnalysisModel.ts`, `src/openAISemanticNormalizer.ts` | OpenAI analyzer and normalizer adapters |
 | `src/runner.ts`, `src/dev/` | Local runner and offline mock models |
@@ -106,14 +126,20 @@ npm run build
 # Offline, no keys (scenario: pass | refine | stop)
 npm run frame -- --mock --scenario refine --identity "calm, grounded" --out out/mock
 
+# Offline board (scenario also: partial | quota; mock scripts split predictably with --concurrency 1)
+npm run frame -- --mock --board 7 --scenario partial --concurrency 1 --identity "calm, grounded" \
+  --place "a quiet street at dusk" --out out/mock-board
+
 # Live provider calls (paid). Needs GEMINI_API_KEY and OPENAI_API_KEY; see .env.example.
 npm run frame -- --live --ref me-1.jpg --ref me-2.jpg --identity "calm, grounded" --out out/live-1
 ```
 
-The runner writes `frame.<ext>` when a frame is delivered and `run.json` with counts, events,
-per-call timings, served model ids, and token usage. `run.json` never contains user text,
-prompts, or image bytes. One live run makes at most 3 generation calls, 2 refinement calls, one
-analysis call per candidate, and (with `--semantic`) one normalization call.
+The runner writes `frame.<ext>` when a frame is delivered (for a board, `frame-<position>.<ext>`
+per delivered frame and `board.jpg`) and `run.json` with counts, events, per-call timings, served
+model ids, and token usage. `run.json` never contains user text, prompts, or image bytes. One
+live frame makes at most 3 generation calls, 2 refinement calls, one analysis call per
+candidate, and (with `--semantic`) one normalization call; a board can make that for every
+frame, up to 90 image and analysis calls for 9 frames.
 
 ## Version freeze
 
