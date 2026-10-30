@@ -69,6 +69,21 @@ in the project thread, after each card set out the conflicting sources and a rec
   `board.test.ts`, `boardPlaces.test.ts`, `boardImage.test.ts`, `raster.test.ts`. Engineering
   choices the spec left open are P-14 and P-15.
 
+### V2-03 The AI language cleanup step is on by default
+- **Decision:** Rob chose "On by default, gpt-6-luna" on 2026-10-30, after the model and code
+  audit (https://claude.ai/artifact/BaBZTB8f99kmAQk1gwokN6) showed that the deterministic filter
+  only knows English word lists: "Quiero ser rico y exitoso, sentado en un Lamborghini" came out as
+  "Quiero ser rico y exitoso, sentado en un", and spaced or misspelled words ("w e a l t h y",
+  "r1ch") passed unchanged.
+- **Not an R1 rule change:** R1 System Flow 2 is "Normalize & Filter (LLM)"; running without the
+  LLM step was the departure. The deterministic filter still runs on the LLM's output (P-12).
+- **Behavior:** the live runner enables `OpenAISemanticNormalizer` unless `--no-semantic` is given.
+  Its default model is `gpt-6-luna` (`DEFAULT_OPENAI_NORMALIZER_MODEL`), separate from the QA
+  model. One call per frame (P-15). Mock mode never makes the call. Any future production wiring
+  must pass the normalizer to the engine the same way.
+- **Code and tests:** `src/openAISemanticNormalizer.ts`, `src/runner.ts`;
+  `openAIAnalysisModel.test.ts` (normalizer default).
+
 ### Answers to open questions
 | Question | Owner's choice | What follows |
 |----------|----------------|--------------|
@@ -86,6 +101,7 @@ in the project thread, after each card set out the conflicting sources and a rec
 | Board image with one frame (2026-10-30) | No, just the frame | One delivered frame comes alone, with no board image |
 | Same place twice (2026-10-30) | Yes, allow repeats | Typed places may repeat; fill-in settings never do |
 | v2 board spec (2026-10-30) | Approve, I'll mark settings later | Recorded as V2-02 and built with the draft settings list, tested with mock models only |
+| AI language cleanup (2026-10-30) | On by default, gpt-6-luna | Recorded as V2-03 |
 
 ## Provisional engineering decisions
 
@@ -129,8 +145,13 @@ in the project thread, after each card set out the conflicting sources and a rec
 - **Behavior:** a generation or refinement is counted when the call is made, whatever happens
   next (provider error, refusal, no image, invalid bytes). The refinement budget is one counter
   for the whole run. Adapters never retry: Gemini `retryOptions.attempts = 1`, OpenAI
-  `maxRetries = 0`. Analysis calls are not capped by R1; there is one per candidate.
-- **Tests:** `engine.test.ts` AC-07, AC-08; adapter tests.
+  `maxRetries = 0`. The Gemini SDK's automatic continuation, on by default since
+  `@google/genai` 2.31, would resend a request (billed again) whenever a reply ends with finish
+  reason `CONTINUATION`; the adapter sets `automaticContinuation: false` and treats such a reply
+  as a failed attempt (2026-10-30). Analysis calls are not capped by R1; there is one per
+  candidate.
+- **Tests:** `engine.test.ts` AC-07, AC-08; adapter tests; `sdkClients.test.ts` runs the real
+  SDK clients against a stubbed fetch and checks one request per attempt.
 
 ### P-05 Technical failure handling (D07, D11, F12)
 - **Behavior:** adapters map failures to kinds (`src/errors.ts`).
@@ -167,38 +188,60 @@ in the project thread, after each card set out the conflicting sources and a rec
   cannot produce safe intent".
 
 ### P-09 Intake limits (D13)
-- **Behavior:** 1 to 4 reference images (owner-confirmed, O-05), each at most 4 MB, PNG/JPEG/WebP
-  sniffed from the bytes, at least 64 px per side. Raw intent fields at most 500 characters;
-  clean values at most 200. Fields outside the three-field contract are dropped silently; wrong
-  types are rejected.
+- **Behavior:** 1 to 4 reference images (owner-confirmed, O-05), PNG/JPEG/WebP sniffed from the
+  bytes (or HEIC, below). Raw intent fields at most 500 characters; clean values at most 200.
+  Fields outside the three-field contract are dropped silently; wrong types are rejected.
+- **Every reference is re-encoded (2026-10-30):** an upload is checked first (at most 20 MB, 64 to
+  16384 px per side, at most 50 M pixels, declared MIME type matching the bytes), then decoded and
+  written again as JPEG quality 90 with `sharp` (`src/photo.ts`): EXIF orientation applied,
+  longest side at most 2048 px, transparency flattened onto white, and all metadata dropped
+  (EXIF including GPS location and camera serials, XMP, IPTC, ICC). The result must pass the
+  reference contract: at most 4 MB, 64 to 8192 px per side. Before this, only HEIC was
+  re-encoded; JPEG, PNG and WebP went to both providers byte for byte, GPS included, and
+  anything over 4 MB was rejected. A board re-encodes once and every frame reuses the result
+  (re-encoding a JPEG again would lose quality).
 - **HEIC (owner-approved, O-05):** a reference whose bytes are HEVC-coded HEIF (`src/heic.ts`)
   is decoded and re-encoded as JPEG before the checks above: input at most 20 MB and 50 M
   pixels, output longest side at most 2048 px, quality 90. Re-encoding drops all metadata,
   including EXIF location. Only the first top-level image in the file is used. A declared MIME
   type must be `image/heic` or `image/heif`. A file that cannot be decoded ends the run as
   `invalid_references` before any model call.
-- **Dependency note:** decoding uses `heic-decode` 2.1.0 (ISC) over `libheif-js` 1.23.5
+- **Dependency note:** HEIC decoding uses `heic-decode` 2.1.0 (ISC) over `libheif-js` 1.23.5
   (LGPL-3.0, libheif and libde265 compiled to WebAssembly); encoding uses `jpeg-js` 0.4.4
-  (BSD-3-Clause). LGPL obligations and HEVC patent licensing for a commercial service have not
-  been reviewed.
+  (BSD-3-Clause). Other formats use `sharp` 0.35.5 (Apache-2.0) with its prebuilt libvips
+  8.18.7 (LGPL-3.0), a native binary installed per platform; the prebuilt libvips does not decode
+  HEVC, so HEIC keeps its own path. LGPL obligations and HEVC patent licensing for a commercial
+  service have not been reviewed.
 - **Measured (this container, Node 22):** a synthetic 12 MP (4032 x 3024) HEIC converted in
   about 3.4 s, with process memory around 340 MB. Tested only with libheif-encoded fixtures, not
   with files from an iPhone (which use tiled grid images and rotation).
 - **Why these numbers:** none come from R1. Four is the lower of the documented character
-  reference limits (Nano Banana 2.1: 4, Pro: 5). 2048 px matches the analyzer's high-detail
-  input size.
-- **Tests:** `engine.test.ts` AC-05, intake; `images.test.ts`; `heic.test.ts`.
+  reference limits (Nano Banana 2.1: 4, Pro: 5). 2048 px keeps faces detailed while keeping
+  requests small; the GPT-6 image sizing table could not be read on 2026-10-30, so whether the
+  analyzer downsizes further is unverified.
+- **Tests:** `engine.test.ts` AC-05, intake; `images.test.ts`; `heic.test.ts`; `photo.test.ts`
+  (orientation, metadata removal, large photos, WebP, transparency, damaged files);
+  `board.test.ts` (one re-encode per board).
 
-### P-10 Providers and models (D12), checked 2026-10-28
-- **Generator:** `@google/genai` 2.31.0, `models.generateContent`, default model
+### P-10 Providers and models (D12), checked 2026-10-28, re-checked 2026-10-30
+- **2026-10-30 audit** (https://claude.ai/artifact/BaBZTB8f99kmAQk1gwokN6): every default model
+  is still live with no deprecation notice. `@google/genai` moved to 2.32.0. Gemini requests ask
+  for `responseModalities: ['IMAGE']` only (was `TEXT` and `IMAGE`), as Google's current
+  examples do, so no output text is paid for; to confirm in the live test. The normalizer now
+  defaults to `gpt-6-luna` (V2-03). Candidates for the live test, not yet defaults:
+  `gemini-nano-banana-2.1` ($0.034 per 1K image against $0.134 for Pro) and `gpt-6.1-terra` for QA
+  (OpenAI's visual-reasoning model, $1 / $5 per 1M tokens against $10 / $50 for `gpt-6-astra`).
+  Google's free tier may use inputs for training and human review, so real photos need a paid
+  project; `store: false` does not change that.
+- **Generator:** `@google/genai` 2.32.0, `models.generateContent`, default model
   `gemini-3-pro-image`. The baseline's `gemini-3-pro-image-preview` was deprecated 2026-05-28
   and shut down 2026-06-25 (Gemini API changelog); `gemini-3-pro-image` is its GA successor.
   `gemini-nano-banana-2.1` (GA 2026-10-06) is the docs' recommended general model and can be set
   with `VF_GEMINI_IMAGE_MODEL`. Google's docs now lead with the Interactions API and title the
   generateContent pages "Legacy", but no deprecation or shutdown of generateContent is announced.
-- **Analyzer and normalizer:** `openai` 7.45.1 Responses API with strict JSON Schema output,
-  default model `gpt-6-astra` (the docs' recommended default). Override with
-  `VF_OPENAI_ANALYSIS_MODEL` / `VF_OPENAI_NORMALIZER_MODEL`.
+- **Analyzer and normalizer:** `openai` 7.45.1 Responses API with strict JSON Schema output.
+  Analyzer default `gpt-6-astra` (the docs' recommended default); normalizer default
+  `gpt-6-luna` (V2-03). Override with `VF_OPENAI_ANALYSIS_MODEL` / `VF_OPENAI_NORMALIZER_MODEL`.
 - **Data handling:** `store: false` on every request to both providers, so reference photos are
   not kept for later retrieval. This is a request setting, not a privacy guarantee; provider
   terms still apply.
@@ -220,9 +263,10 @@ in the project thread, after each card set out the conflicting sources and a rec
   matching with inflections, drops whole clauses that read as instructions to the system, and
   removes user-supplied actions or poses (including "standing" and "walking": R1 §3 says users
   may not provide actions or poses; the canonical prompt already sets them), objects, roles and
-  outcomes, status signals, and the R1 §2 disallowed framings. The optional LLM step
-  (`OpenAISemanticNormalizer`) runs first when enabled; its output must be exactly the three
-  fields and still passes through the deterministic filter. If the LLM step fails transiently,
+  outcomes, status signals, and the R1 §2 disallowed framings. Its word lists are English only.
+  The LLM step (`OpenAISemanticNormalizer`) runs first when enabled, which the live runner does
+  by default (V2-03); its output must be exactly the three fields and still passes through the
+  deterministic filter. If the LLM step fails transiently,
   the deterministic filter alone is used; a fatal failure ends the run before any image call.
 - **Role nouns:** "leader", "creator", "builder" and similar are removed (D14, conservative).
 
@@ -255,8 +299,9 @@ in the project thread, after each card set out the conflicting sources and a rec
 - **Conflict:** the approved spec's cost section says "The optional language-cleanup step adds
   one call per board". Its other sections say each frame is one full, independent v1 run and
   each place is filtered exactly like today's environment field.
-- **Behavior:** when the optional semantic normalizer is enabled (`--semantic`), each frame's
-  run calls it, so a board makes one call per frame (up to 9). It is off by default.
+- **Behavior:** when the semantic normalizer is enabled (on by default in live runs since V2-03;
+  `--no-semantic` turns it off), each frame's run calls it, so a board makes one call per frame
+  (up to 9).
 - **Trade-off:** up to 8 extra text-only calls per board, and the LLM may word the identity
   slightly differently in each frame. The alternative is one call for identity and mood per
   board plus deterministic filtering only for places. Revisit with live-test costs.

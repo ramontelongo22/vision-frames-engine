@@ -12,10 +12,10 @@ reel, fantasy, or productivity simulation.
 | Area | State |
 |------|-------|
 | Engine control flow (caps, hard stops, refinement, fail-closed QA) | Implemented; covered by mocked tests |
-| iPhone HEIC reference photos | Converted to JPEG on intake; tested with libheif-made files, not yet with photos from an iPhone |
+| Reference photos | Every photo re-encoded as JPEG on intake: upright, at most 2048 px, all metadata (including GPS location) removed. HEIC tested with libheif-made files, not yet with photos from an iPhone |
 | Gemini image generation and refinement adapter | Implemented; request shape tested offline; **no live call made yet** |
 | OpenAI reference-aware QA analyzer | Implemented; request shape tested offline; **no live call made yet** |
-| Optional LLM normalization step | Implemented; offline tests only |
+| LLM language cleanup step | Implemented; on by default in live runs (V2-03, `gpt-6-luna`); offline tests only |
 | "Quality degrades with retries" hard stop | **Not implemented**: needs an owner-defined rubric |
 | Boards (3, 7 or 9 frames, v2) | Implemented per the approved v2 spec (V2-02); covered by mocked tests; fill-in settings list is still a draft awaiting the owner's marks |
 | UI, storage, auth, payments, deployment | None |
@@ -39,9 +39,10 @@ No API keys are needed for any of that.
 
 ```
 reference images + { identityDirection, environmentPreference?, moodTone? }
-  -> intake: convert HEIC to JPEG; validate image bytes and the three permitted fields;
-     drop anything else
-  -> normalize: silently strip disallowed framing, actions, objects, roles, commands
+  -> intake: re-encode every photo as an upright, metadata-free JPEG (HEIC included);
+     validate image bytes and the three permitted fields; drop anything else
+  -> normalize: LLM cleanup (when wired in; on by default in the live runner), then a
+     deterministic filter: silently strip disallowed framing, actions, objects, roles, commands
   -> canonical prompt (verbatim R1 Section 4) + labeled variables
   -> generation loop, at most 3 calls
        -> analyze candidate against the references -> QA gate (8 discard rules)
@@ -98,6 +99,7 @@ P-14 and P-15.
 import {
   NanoBananaImageGenerationModel,
   OpenAIImageAnalysisModel,
+  OpenAISemanticNormalizer,
   VisionFramesEngine,
   toPublicOutcome,
 } from 'vision-frames-v1';
@@ -105,7 +107,9 @@ import {
 const engine = new VisionFramesEngine(
   new NanoBananaImageGenerationModel({ apiKey: process.env.GEMINI_API_KEY }),
   new OpenAIImageAnalysisModel({ apiKey: process.env.OPENAI_API_KEY }),
-  [{ bytes: photoBuffer }] // 1-4 reference images (PNG, JPEG, WebP, HEIC); format is read from the bytes
+  [{ bytes: photoBuffer }], // 1-4 reference images (PNG, JPEG, WebP, HEIC); format is read from the bytes
+  // The LLM language cleanup step is on by default in the product (V2-03)
+  { semanticNormalizer: new OpenAISemanticNormalizer({ apiKey: process.env.OPENAI_API_KEY }) }
 );
 
 const result = await engine.execute({
@@ -131,6 +135,7 @@ npm run frame -- --mock --board 7 --scenario partial --concurrency 1 --identity 
   --place "a quiet street at dusk" --out out/mock-board
 
 # Live provider calls (paid). Needs GEMINI_API_KEY and OPENAI_API_KEY; see .env.example.
+# The language cleanup call is on by default; add --no-semantic to skip it.
 npm run frame -- --live --ref me-1.jpg --ref me-2.jpg --identity "calm, grounded" --out out/live-1
 ```
 
@@ -138,7 +143,7 @@ The runner writes `frame.<ext>` when a frame is delivered (for a board, `frame-<
 per delivered frame and `board.jpg`) and `run.json` with counts, events, per-call timings, served
 model ids, and token usage. `run.json` never contains user text, prompts, or image bytes. One
 live frame makes at most 3 generation calls, 2 refinement calls, one analysis call per
-candidate, and (with `--semantic`) one normalization call; a board can make that for every
+candidate, and one language cleanup call (unless `--no-semantic`); a board can make that for every
 frame, up to 90 image and analysis calls for 9 frames.
 
 ## Version freeze

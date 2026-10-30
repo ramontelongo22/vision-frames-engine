@@ -10,7 +10,11 @@
  * was shut down on 2026-06-25; gemini-3-pro-image is its GA successor. The model id is
  * configurable because provider model ids change.
  *
- * The adapter never retries. Each call the engine counts is exactly one HTTP request.
+ * The adapter never retries. Each call the engine counts is exactly one HTTP request:
+ * SDK retries are off, and so is the SDK's automatic continuation, which by default
+ * resends a request (billed again) whenever a reply ends with finish reason CONTINUATION.
+ * A reply that ends that way is a failed attempt. Only the image is requested back
+ * (responseModalities IMAGE), so no output text is paid for.
  */
 
 import {
@@ -126,9 +130,11 @@ export class NanoBananaImageGenerationModel implements ImageGenerationModel {
       model: this.model,
       contents: [{ role: 'user', parts }],
       config: {
-        responseModalities: ['TEXT', 'IMAGE'],
+        responseModalities: ['IMAGE'],
         // Do not keep request logs (which contain the user's photos) at the provider
         store: false,
+        // One counted attempt must stay one billed request (P-04)
+        automaticContinuation: false,
         imageConfig: this.imageConfig,
         ...(signal ? { abortSignal: signal } : {}),
       },
@@ -190,6 +196,10 @@ export function extractImage(response: unknown): ImagePayload {
   const finishReason = candidate?.finishReason;
   if (finishReason && REFUSAL_FINISH_REASONS.has(finishReason)) {
     throw new ProviderError('refusal', `generation stopped: ${finishReason}`);
+  }
+  // Automatic continuation is off, so this reply is unfinished; it is never an image
+  if (finishReason === FinishReason.CONTINUATION) {
+    throw new ProviderError('invalid_response', 'generation stopped before it finished (CONTINUATION)');
   }
 
   const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
