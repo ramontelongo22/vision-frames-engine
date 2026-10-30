@@ -6,6 +6,46 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-10-30: toolchain upgrade and CI (P-16)
+
+**Branch:** `claude/tooling`, from `f65bd54` on `claude/hardening` (PR #3).
+**Inputs:** the second half of Rob's "Hardening and tooling PRs" choice. No product behavior
+changes, no paid calls, no deployment.
+
+### What changed
+- `package.json`: Node `>=24` (was `>=22`). Dev tools pinned exactly: TypeScript 5.3 to 6.0.3,
+  ESLint 8.57 to 10.14.0 with `@eslint/js` 10.0.1 and `typescript-eslint` 8.72.1 (replaces
+  `@typescript-eslint/parser` and `eslint-plugin` 6), Jest 29 to 30.5.2, `@types/jest` 30,
+  `@types/node` 20 to 24, ts-jest 29.4.15. `smoke:mock` now passes a HEIC reference and fails
+  unless the run succeeds.
+- `tsconfig.json`: `module: node20`, `moduleResolution: node16` (TypeScript 6 deprecates `node`).
+- `eslint.config.js` replaces `.eslintrc.js`; same rule settings.
+- `jest.config.js`: explicit ts-jest transform that ignores only warning 151002 (P-16).
+- `tests/engine.test.ts`: one dynamic `import('../src/engine')` became a static import.
+- `.github/workflows/ci.yml` (new): `npm ci`, `npm run verify`, `npm audit --omit=dev` on Node 24
+  and 26.
+- Docs: DECISIONS P-16, README.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Node 24.22.2, clean install | `npm ci && npm run verify` | exit 0; 15 suites passed; 333 passed, 1 todo (AC-11, blocked) |
+| Node 26.13.0, clean install | `npm ci && npm run verify` | exit 0; same counts |
+| Coverage (Node 24) | `npx jest --coverage --runInBand` | lines 95.49%, branches 90.07%, functions 98.57% |
+| HEIC from the built package | `npm run smoke:mock` (HEIC `--ref`) | `internal: success`; run.json has `references_converted` count 1 |
+| Lint rules still fire | a throwaway file with `any` and an unused variable | 1 warning, 1 error, as with the old config |
+| Runtime audit | `npm audit --omit=dev` | 0 vulnerabilities |
+| Full audit | `npm audit` | 6 low (`deepmerge` in Jest, no fixed release); was 13 (7 low, 6 high) |
+
+### Gaps
+- The workflow has not run on GitHub yet; the first run is on this PR.
+- The 6 low dev-only findings stay until `deepmerge` or Jest ships a fix (P-16).
+
+### Next action
+1. Owner: review and merge PRs #1, #2, #3 and this one, in that order.
+2. Owner: O-06 live test, starting with one QA call on a consented photo pair, on a paid Gemini
+   project.
+
 ## 2026-10-30: hardening from the model and code audit; language cleanup on by default (V2-03)
 
 **Branch:** `claude/hardening`, from `d75db95` on `claude/boards` (PR #2).
