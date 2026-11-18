@@ -6,6 +6,43 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-11-18: Japan, Tokyo, Kyoto and Osaka place lists sourced from Wikidata (V2-04)
+
+**Branch:** `claude/boards`, from `127fa3f`. Run on Rob's Mac in a separate clone, because the
+cloud session cannot reach Wikidata. No paid calls, no deployment, no live run.
+
+### What changed
+- `src/realPlaces.ts`: `REAL_PLACE_DESTINATIONS` now holds four lists of 14 places each (Japan,
+  Tokyo, Kyoto, Osaka). Every name is the item's English label or an English alias on Wikidata,
+  and every coordinate is its first P625 value. The Japan list uses places outside the three
+  cities (Nara, Hakone, Kanazawa, Hatsukaichi, Fujikawaguchiko, Matsumoto, Otaru, Uji,
+  Kamakura, Nagasaki), so a Japan board does not overlap the city lists.
+- `data/wikidata-candidates/` (new): the raw SPARQL results the places were picked from, with a
+  README listing each query.
+- `tests/boardPlaces.test.ts`: the test that expected every destination to stay as typed while
+  the lists were empty now checks that a nine-frame board typed with Japan, Tokyo, Kyoto and
+  Osaka gets nine different real places from the right lists.
+- `docs/DECISIONS.md` V2-04: records that the lists are sourced and still await Rob's approval.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Place check | `npm run check:places` | first run: 2 problems (`tokyo Q222149: coordinates are 10.1 km from Wikidata's`, `kyoto Q27218: coordinates are 25.7 km from Wikidata's`); both rivers have several P625 values and the check reads the first. After switching to the first value: `4 destinations, 56 places, 0 problems` |
+| Full pipeline | `npm run verify` | first run failed 1 test (the empty-list test above); after the change: exit 0, 15 suites passed, 354 passed, 1 todo, lint clean, `package import ok`, smoke frame `delivered`, smoke board `delivered, 6 of 7 frames` |
+| Intake filter | `normalizeField` on every setting | no name changed (startup check `assertUsableDestinations` also passes) |
+
+### Gaps
+- Rob has not approved the lists. Because they are in `REAL_PLACE_DESTINATIONS`, local and mock
+  boards already use them; emptying the array turns them off.
+- Quietness is a judgement from the item class and general knowledge, not from Wikidata. Arashiyama
+  Bamboo Grove and Osaka Castle Park can be crowded by day and are flagged for Rob.
+- How the image model renders a named place is unverified until a live run.
+
+### Next action
+Rob reviews the four lists and approves them or names places to swap.
+
+---
+
 ## 2026-11-18: real places for bare destinations (V2-04), code and checks, no lists yet
 
 **Branch:** `claude/boards` (PR #2), from `d75db95`.
