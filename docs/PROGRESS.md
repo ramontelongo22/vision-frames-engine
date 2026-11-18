@@ -312,3 +312,15 @@ Tooling and docs:
    the image by eye, and record `run.json` (model ids, timings, usage, exit reason) here.
 3. Owner: O-02 quality rubric, then implement AC-11.
 4. Owner: O-01 product envelope before any UI or checkout work.
+
+## 2026-11-18: O-06 live comparison harness (branch claude/live-test, from claude/hardening)
+
+- Rob approved the O-06 live test and asked to compare Gemini and OpenAI. In the engine they do
+  different jobs (Gemini makes, OpenAI checks), so this adds a test-only OpenAI image maker
+  (`src/openAIImageModel.ts`, gpt-image-2.5-sunburst at 1536x864 via images.edit with the
+  reference photos) selected by `--generator openai`. Gemini stays the default.
+- `scripts/o06-compare.sh` runs both on the same inputs; `scripts/o06-report.mjs` builds a
+  side-by-side page with observable facts only (outcome, attempts, QA findings, errors, latency,
+  token usage). No quality score.
+- `npm run verify`: 16 suites, 337 passed, 1 todo; lint, import check and both mock smokes pass.
+- Not yet run live: waiting on Rob's choice of what to compare, where to run, keys and photos.

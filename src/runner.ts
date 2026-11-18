@@ -14,6 +14,9 @@
  *       [--environment "a quiet street at dusk"] [--mood "steady"] [--no-semantic] [--out out/run-1]
  *     npm run frame -- --live --board 3 --ref me-1.jpg --identity "calm, grounded" [--place "..." ...]
  *
+ *   O-06 provider comparison: add --generator openai to make the images with OpenAI
+ *   (gpt-image, src/openAIImageModel.ts) instead of Gemini; QA and cleanup are unchanged.
+ *
  * Live mode never starts without the explicit --live flag. One frame makes at most
  * 3 generation calls, 2 refinement calls, one analysis per candidate, and one language
  * cleanup call (on by default, V2-03; --no-semantic turns it off); a board makes up to
@@ -48,6 +51,7 @@ import { failureKindOf } from './errors';
 import { encodeSolidPng } from './dev/png';
 import { NanoBananaImageGenerationModel } from './nanoBananaModel';
 import { OpenAIImageAnalysisModel } from './openAIAnalysisModel';
+import { OpenAIImageGenerationModel } from './openAIImageModel';
 import { OpenAISemanticNormalizer } from './openAISemanticNormalizer';
 import { ProviderResponseMetadata } from './providerMetadata';
 
@@ -105,6 +109,8 @@ async function main(): Promise<number> {
       mood: { type: 'string' },
       // Language cleanup is on by default in live mode (V2-03); --no-semantic turns it off
       semantic: { type: 'boolean', default: true },
+      // O-06 comparison only: which provider makes the images in live mode
+      generator: { type: 'string', default: 'gemini' },
       board: { type: 'string' },
       place: { type: 'string', multiple: true, default: [] },
       concurrency: { type: 'string' },
@@ -174,7 +180,11 @@ async function main(): Promise<number> {
       console.error('Live mode needs at least one --ref reference image.');
       return 2;
     }
-    const gemini = new NanoBananaImageGenerationModel({
+    if (values.generator !== 'gemini' && values.generator !== 'openai') {
+      console.error('--generator must be gemini or openai');
+      return 2;
+    }
+    const gemini = values.generator === 'openai' ? undefined : new NanoBananaImageGenerationModel({
       apiKey: geminiKey,
       model: process.env.VF_GEMINI_IMAGE_MODEL || undefined,
       aspectRatio: process.env.VF_GEMINI_ASPECT_RATIO || undefined,
@@ -186,10 +196,18 @@ async function main(): Promise<number> {
       model: process.env.VF_OPENAI_ANALYSIS_MODEL || undefined,
       onResponse,
     });
-    generator = gemini;
+    const openaiImages = gemini
+      ? undefined
+      : new OpenAIImageGenerationModel({
+          apiKey: openaiKey,
+          model: process.env.VF_OPENAI_IMAGE_MODEL || undefined,
+          size: process.env.VF_OPENAI_IMAGE_SIZE || undefined,
+          onResponse,
+        });
+    generator = (gemini ?? openaiImages) as ImageGenerationModel;
     analyzer = openai;
     models.mode = 'live';
-    models.generator = gemini.model;
+    models.generator = gemini ? gemini.model : `${openaiImages!.model} @ ${openaiImages!.size}`;
     models.analyzer = openai.model;
     if (values.semantic) {
       const normalizer = new OpenAISemanticNormalizer({
