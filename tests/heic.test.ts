@@ -12,7 +12,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { decode as decodeJpeg } from 'jpeg-js';
 import { LIMITS } from '../src/config';
-import { convertHeicToJpeg, downscaleRgba, isHeic } from '../src/heic';
+import { convertHeicToJpeg, isHeic } from '../src/heic';
 import { validateImageBytes } from '../src/images';
 import { convertHeicReferences } from '../src/intake';
 import { expectCleanTermination, harness, jpeg, pass, png, references } from './helpers';
@@ -98,29 +98,6 @@ describe('convertHeicToJpeg', () => {
     expect(isHeic(damaged)).toBe(true);
     const result = await convertHeicToJpeg(damaged);
     expect(result).toEqual({ ok: false, error: 'decode_failed' });
-  });
-});
-
-describe('downscaleRgba', () => {
-  it('averages the source pixels under each output pixel', () => {
-    // 4x2 image: left 2x2 block is 0/100/200/255, right block is 40/40/40/255
-    const data = new Uint8Array(4 * 2 * 4);
-    for (let y = 0; y < 2; y++) {
-      for (let x = 0; x < 4; x++) {
-        const o = (y * 4 + x) * 4;
-        data.set(x < 2 ? [0, 100, 200, 255] : [40, 40, 40, 255], o);
-      }
-    }
-    const out = downscaleRgba({ width: 4, height: 2, data }, 2);
-
-    expect(out.width).toBe(2);
-    expect(out.height).toBe(1);
-    expect(Array.from(out.data)).toEqual([0, 100, 200, 255, 40, 40, 40, 255]);
-  });
-
-  it('returns images already within the limit unchanged', () => {
-    const source = { width: 10, height: 5, data: new Uint8Array(200) };
-    expect(downscaleRgba(source, 10)).toBe(source);
   });
 });
 

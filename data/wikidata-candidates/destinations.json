@@ -1,0 +1,820 @@
+{
+  "head" : {
+    "vars" : [ "item", "itemLabel", "coord", "country", "inst", "instLabel" ]
+  },
+  "results" : {
+    "bindings" : [ {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(136.0 35.0)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q6256"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Japan"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "country"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(136.0 35.0)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q112099"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Japan"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "island country"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(136.0 35.0)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q3624078"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Japan"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "sovereign state"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q50337"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "prefecture of Japan"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q174844"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "megacity"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q200250"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "metropolis"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q208511"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "global city"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1025961"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "capital of Japan"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1066984"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "financial center"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1200957"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "tourist destination"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1549591"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "big city"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q51929311"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "largest city"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1490"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(139.691666666 35.689444444)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q124313007"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Tokyo"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "metropolitan prefecture"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q494721"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "city of Japan"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1187811"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "college town"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1200957"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "tourist destination"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1549591"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "big city"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1749269"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "city designated by government ordinance"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q11422368"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "city for international conferences and tourism"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q65589340"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "prefectural capital of Japan"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q34600"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.768111111 35.011611111)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q129268952"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Kyoto"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "former national capital"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q174844"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "megacity"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q200250"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "metropolis"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q494721"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "city of Japan"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q1749269"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "city designated by government ordinance"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q2264924"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "port city"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q11422368"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "city for international conferences and tourism"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q27554677"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "former capital"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q35765"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(135.502111111 34.69375)"
+      },
+      "country" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q17"
+      },
+      "inst" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q65589340"
+      },
+      "itemLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Osaka"
+      },
+      "instLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "prefectural capital of Japan"
+      }
+    } ]
+  }
+}

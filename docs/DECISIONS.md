@@ -18,8 +18,10 @@ Three kinds of entries:
 
 ## Owner decisions
 
-All made by Rob (owner) on 2026-10-29 by choosing an option on a decision card in the project
-thread, after each card set out the conflicting sources and a recommendation.
+Made by Rob (owner) on 2026-10-29, 2026-10-30 and 2026-11-18, by choosing an option on a
+decision card in the project thread after it set out the conflicting sources and a
+recommendation, or (V2-04) by asking for the change in the project chat. V2-03 (language
+cleanup on by default) is recorded on the hardening branch (PR #3).
 
 ### V2-01 A QA-passing frame is never thrown away because its refinement failed
 - **Rule change:** R1 System Flow 6 says a failed refinement is discarded and the run either
@@ -38,10 +40,75 @@ thread, after each card set out the conflicting sources and a recommendation.
   event `refinement_abandoned` records why. `engine.test.ts` AC-08, AC-09, AC-10, AC-12 and
   "O-03 a failed refinement delivers the QA-passing base".
 
+### V2-02 Boards of 3, 7 or 9 frames, each made by one v1 run
+- **Rule change:** R1 p.1 says "This is not a vision board", and v1 delivers one frame per
+  run. v2 adds a board: 3, 7 or 9 frames ordered together. Each frame is one full,
+  independent v1 engine run with its own 3 generations and 2 refinements, the shared
+  reference photos, identity direction and mood, and that frame's place as its environment
+  preference. The board never adds attempts to a frame, hard stops count within a frame only,
+  and V2-01 applies to each frame.
+- **Spec:** the Claude Doc "Vision Frames v2: boards"
+  (https://claude.ai/artifact/N7J3zZRTN39MbkCAMDUazd), approved by Rob on 2026-10-30 with the
+  card option "Approve, I'll mark settings later". His answers to its open questions are in
+  the table below.
+- **What a board does:** the customer may type up to one place per frame. Each typed place is
+  filtered by its frame's run exactly like `environmentPreference`; one that filters down to
+  nothing counts as a blank. Blanks are filled from the owner's settings list with no setting
+  used twice; typed places may repeat. Board order is typed places in order, then filled
+  ones. A frame that ends with no image is left off and refunded at an equal share of the
+  board price. The board stops starting new frames only on a fatal provider failure or
+  cancellation, and frames never started are refunded. Two or more delivered frames are
+  composed into one board image with no text on it; one delivered frame comes alone; none
+  delivered ends exactly like a single frame that stops. Frames are 16:9 landscape.
+- **Unchanged for every frame:** the canonical prompt, the three Clean Intent fields, the
+  eight discard rules, both caps, hard stops, silent stops, and language filtering.
+- **Still open:** the owner's Keep, Drop or Reword marks on the settings list (the code uses
+  `BOARD_SETTINGS_DRAFT` until then); how many frames run at once (3 until the live test);
+  prices (after the live test); the private tester page.
+- **Code and tests:** `src/board.ts` (`VisionFramesBoard`), `src/boardPlaces.ts`,
+  `src/boardImage.ts`, `src/raster.ts`, `toPublicBoardOutcome` in `src/delivery.ts`,
+  `DEFAULT_GEMINI_ASPECT_RATIO` in `src/nanoBananaModel.ts`, runner `--board` and `--place`.
+  `board.test.ts`, `boardPlaces.test.ts`, `boardImage.test.ts`, `raster.test.ts`. Engineering
+  choices the spec left open are P-14 and P-15.
+
+### V2-04 A bare destination becomes a real, named place from an approved list
+- **Rule change:** R1 §3 lists "Environment preference (broad only)" and System Flow 2 says
+  "environment preference (broad)". On 2026-11-18 Rob asked in the project chat that when a
+  customer types only a destination, such as "Japan", "Tokyo" or "Osaka", the frame use "a real
+  place in Japan, or a real place in Tokyo or Osaka", "so we can say you should be envisioning
+  yourself in a real place there, not just a fake place that we made up", and that we keep
+  "ten to fifteen different defaults that we can choose from so we're not always
+  regenerating. Maybe we're just fixing light". So a board frame whose typed place is only a
+  destination with an owner-approved list gets a specific named place from that list as its
+  environment preference, with its city, country and a light.
+- **Kept real and verifiable:** every listed place carries its Wikidata item and coordinates.
+  `npm run check:places` confirms against live Wikidata that each item exists and was not
+  merged, that its English label or an English alias is the name we show, that its
+  coordinates are within 1 km of ours, that it is in the destination's country, and, for a
+  city, that it is within 60 km of the city. Places are never chosen or generated at order
+  time and no model is asked for them, so this adds no model calls. A list ships only after
+  the check passes and Rob approves it. The frame is the image model's rendering of the
+  place, not a photograph of it.
+- **First lists:** Japan, Tokyo, Kyoto and Osaka, 10 to 15 places each where one person
+  standing or walking alone looks natural (Rob's card choice "Japan first", 2026-11-18). Sourced
+  from Wikidata on 2026-11-18: 14 places per destination, names taken from each item's English
+  label or alias, coordinates from its P625 value, raw query results in
+  `data/wikidata-candidates/`. All 56 pass `npm run check:places`. The lists are in
+  `REAL_PLACE_DESTINATIONS`, so local and mock boards now use them, and they still await Rob's
+  approval before anything ships. Emptying that array turns the feature off again.
+- **Unchanged:** a place the customer named themselves, or a destination with no list, is kept
+  as typed and filtered as before. The canonical prompt, the three Clean Intent fields, the
+  discard rules, both caps and silent stops. Single-frame runs do not use the lists.
+- **Code and tests:** `src/realPlaces.ts`, `planPlaces` in `src/boardPlaces.ts`,
+  `ExecuteOptions.approvedEnvironment` in `src/engine.ts`, `placeName` on board frames in
+  `toPublicBoardOutcome`, `src/placeCheck.ts` and the `src/checkPlaces.ts` script.
+  `realPlaces.test.ts`, `placeCheck.test.ts`, `boardPlaces.test.ts`, `board.test.ts`,
+  `engine.test.ts`. Engineering details are P-17.
+
 ### Answers to open questions
 | Question | Owner's choice | What follows |
 |----------|----------------|--------------|
-| O-01 single frame or board | A board made of frames | A v2 board spec is drafted for owner approval before any board code. The engine keeps producing one frame per run |
+| O-01 single frame or board | A board made of frames | v2 board spec approved 2026-10-30 (V2-02). The engine still makes one frame per run; a board runs one engine run per frame |
 | Board size | Tiers of 3, 7 and 9 frames | Prices set after a live test measures the real cost per frame (D15) |
 | Board rules | Every frame follows all v1 rules | No rule changes for boards; frames differ only in setting and mood |
 | Board variety | Customer lists a few places | Up to one place per frame; blanks filled from an owner-approved settings list; every entry is normalized like `environmentPreference` |
@@ -50,6 +117,12 @@ thread, after each card set out the conflicting sources and a recommendation.
 | O-02 quality rubric | Define it from live test images | After the live test the owner marks better and worse frames; a checklist is drafted from that for approval. AC-11 stays blocked until then |
 | O-05 photos | Keep 1 to 4, add HEIC | HEIC is converted to JPEG on intake (P-09). Consent copy and likeness examples are still open |
 | Audience | A few friendly testers soon | After the live test: a simple private upload and download page with a consent note. No payments yet |
+| Frame shape (2026-10-30) | 16:9 landscape | Gemini requests default to 16:9 (`DEFAULT_GEMINI_ASPECT_RATIO`), for single frames too; board cells are 16:9 |
+| Refund per missing frame (2026-10-30) | An equal share of the board price | Board records count refunded frames; `run.json` notes the share due. No money moves in the tester phase |
+| Board image with one frame (2026-10-30) | No, just the frame | One delivered frame comes alone, with no board image |
+| Same place twice (2026-10-30) | Yes, allow repeats | Typed places may repeat; fill-in settings never do |
+| v2 board spec (2026-10-30) | Approve, I'll mark settings later | Recorded as V2-02 and built with the draft settings list, tested with mock models only |
+| Real-places lists (2026-11-18) | Japan first | Japan, Tokyo, Kyoto and Osaka lists are sourced from Wikidata, checked with `npm run check:places`, and reviewed by Rob before they ship (V2-04) |
 
 ## Provisional engineering decisions
 
@@ -194,11 +267,66 @@ thread, after each card set out the conflicting sources and a recommendation.
 - **Behavior:** the literal `spec:/` directory was renamed to `spec/`. The PDF bytes are
   unchanged; `promptBuilder.test.ts` checks the hash.
 
+### P-14 Board details the v2 spec leaves open (V2-02)
+- **Fatal failure:** "the provider fails fatally (a bad key, or quota used up)" is read as any
+  frame run that meets one of the engine's fatal kinds (`auth`, `quota`, `bad_request`,
+  `unknown`) or an internal error, including a frame that V2-01 still delivered from its base.
+  Frames already running finish; no new frame starts. Rate limits, timeouts, network and
+  server errors, refusals and missing images stay inside the frame's own run.
+- **Cancellation:** frames already delivered stay delivered; frames running end with nothing
+  (as in v1); frames not started are refunded.
+- **Before any frame:** references are converted (HEIC) and checked once per board. Invalid
+  references, or an identity that the deterministic filter empties when no semantic normalizer
+  is configured, end the board before any model call; the record shows every frame refunded.
+  Invalid board input (size, places, identity or mood types) is rejected with no order recorded.
+- **Board image:** 960 x 540 cells, 24 px gutters, 48 px margin, warm off-white background,
+  JPEG quality 90. A frame of another shape is scaled to cover its cell and cropped evenly,
+  never stretched; transparency is flattened onto the background. Layouts by delivered count:
+  2 and 3 in one row, 4 as 2 x 2, 5 as 3 over 2, 6 as 3 x 2, 7 as 4 over 3, 8 as 4 x 2, 9 as
+  3 x 3. WebP frames are not decoded, so a board with one gets no board image (its frames are
+  still delivered); the Gemini adapter has only returned PNG or JPEG in tests.
+- **Frames at once:** 3 (spec open question 6, to confirm in the live test).
+- **Settings fill:** a uniform random draw without repeats.
+
+### P-15 Language cleanup runs once per frame, not once per board (V2-02)
+- **Conflict:** the approved spec's cost section says "The optional language-cleanup step adds
+  one call per board". Its other sections say each frame is one full, independent v1 run and
+  each place is filtered exactly like today's environment field.
+- **Behavior:** when the optional semantic normalizer is enabled (`--semantic`), each frame's
+  run calls it, so a board makes one call per frame (up to 9). It is off by default.
+- **Trade-off:** up to 8 extra text-only calls per board, and the LLM may word the identity
+  slightly differently in each frame. The alternative is one call for identity and mood per
+  board plus deterministic filtering only for places. Revisit with live-test costs.
+
+### P-17 Real-place details V2-04 leaves open
+- **Matching:** only a bare destination matches. The typed place, lowercased, with accents and
+  punctuation removed and leading "somewhere", "anywhere", "around", "in" and "the" dropped,
+  must equal one of the destination's names. "a quiet street in Tokyo" and "Tokyo at night"
+  say more than the destination, so they stay as typed.
+- **Picks:** each destination's list is shuffled once per board (uniform random), and each
+  matching frame takes the next place not yet used on that board, so no place repeats, even
+  across lists that share places (a Japan list may hold Tokyo spots). If none is left the
+  typed destination is kept as typed; lists of at least 9 make that impossible for one list.
+- **Light:** real-place frames take "at dusk", "at night" and "in early morning light" in turn.
+  Dusk and night come first because the canonical prompt favors them.
+- **Setting text and the language cleanup:** the frame's environment preference is
+  "Name, City, Country, light". The optional LLM cleanup is told to keep settings broad and
+  would drop the name, so the place goes to the frame's run as `approvedEnvironment`: the LLM
+  sees only identity and mood (any typed environment is dropped), and the place still passes
+  the deterministic filter. A list is refused at startup if the filter would change any of its
+  settings, so names avoid apostrophes (the filter turns them into spaces) and filtered words
+  such as "Walk".
+- **What the customer and the records see:** each delivered real-place frame carries
+  `placeName` ("Name, City"). The runner's `run.json` records the destination key, Wikidata
+  item and that label per frame; board events hold counts only.
+- **Check limits:** 1 km between our coordinates and Wikidata's, 60 km from a city's centre.
+  Revisit with the first lists if large sites (parks, temple grounds) need more.
+
 ## Open owner decisions
 
 | ID | Question | Conflicting sources | Recommendation | Blocks |
 |----|----------|---------------------|----------------|--------|
-| O-01 (D01) | Strict single-frame v1, or a separately versioned multi-frame board product? | R1 p.1 "not a vision board"; later user request for about 7-10 images compiled into a board (C2, Jan 4-5) | **Decided 2026-10-29: a board made of frames** (see Owner decisions). Open: owner approval of the v2 board spec that turns these answers into a design. | Checkout, bundles, board assembly, UI scope |
+| O-01 (D01) | Strict single-frame v1, or a separately versioned multi-frame board product? | R1 p.1 "not a vision board"; later user request for about 7-10 images compiled into a board (C2, Jan 4-5) | **Decided 2026-10-29: a board made of frames; spec approved 2026-10-30 (V2-02).** Open: the owner's marks on the settings list. | Final settings list; prices and checkout |
 | O-02 (D06) | What does "quality degrades with retries" mean in practice? | R1 §7 requires the stop but gives no metric, threshold, or judge; an invented score was removed in C1 | **Approach decided 2026-10-29:** define it from owner-marked live test images. The rubric itself is still open. | AC-11; any claim of full R1 compliance |
 | O-03 (D04) | When a cosmetic refinement fails, may the earlier QA-passing base be delivered? | R1 System Flow 6 "fall back to generation loop"; System Flow 7 "A frame passes QA → delivered" | **Decided 2026-10-29: yes** (V2-01). | Nothing |
 | O-04 (D11) | What should a user see when a run ends for technical or payment reasons? | R1 §7 "System stops silently"; C3 suggested "No frame generated"; paid orders are unspecified | Keep policy stops silent. Give technical and payment failures a neutral, non-coaching state and a defined refund or retry policy. | Public UI, payments |

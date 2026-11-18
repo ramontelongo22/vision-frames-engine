@@ -16,6 +16,7 @@ import {
 } from '../src/engine';
 import { ImagePayload } from '../src/images';
 import { AnalysisReport, ImageAnalysis } from '../src/qaGate';
+import { Destination, RealPlace } from '../src/realPlaces';
 import { RefinementType } from '../src/refinement';
 
 export { CLEAN_FINDINGS };
@@ -159,4 +160,18 @@ export function expectCleanTermination(result: EngineResult, h?: Harness): void 
     expect(h.generateCalls.length).toBeLessThanOrEqual(3);
     expect(h.refineCalls.length).toBeLessThanOrEqual(2);
   }
+}
+
+/**
+ * A fixture destination list of `count` places with item ids from `firstId`. Test data only:
+ * shipped lists come from Wikidata and pass `npm run check:places`.
+ */
+export function fixtureDestination(key: string, names: string[], count = 9, firstId = 1000): Destination {
+  const places: RealPlace[] = Array.from({ length: count }, (_, i) => ({
+    name: `${key} Spot ${i + 1}`,
+    city: `${key} City`,
+    wikidata: `Q${firstId + i}`,
+    coordinates: [35 + i / 100, 135 + i / 100],
+  }));
+  return { key, country: 'Testland', wikidata: `Q${firstId - 1}`, names, places };
 }

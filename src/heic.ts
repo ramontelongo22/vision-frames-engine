@@ -12,6 +12,7 @@
 
 import { encode as encodeJpeg } from 'jpeg-js';
 import { LIMITS } from './config';
+import { RgbaImage, downscaleRgba } from './raster';
 
 /** ISO BMFF brands that identify HEVC-coded HEIF images and sequences */
 const HEVC_BRANDS = new Set(['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs']);
@@ -30,13 +31,6 @@ export type HeicConversionError = 'too_large' | 'decode_failed';
 export type HeicConversion =
   | { ok: true; bytes: Uint8Array; width: number; height: number }
   | { ok: false; error: HeicConversionError };
-
-export interface RgbaImage {
-  width: number;
-  height: number;
-  /** RGBA, 4 bytes per pixel */
-  data: Uint8Array | Uint8ClampedArray;
-}
 
 function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.subarray(start, end));
@@ -57,54 +51,6 @@ export function isHeic(bytes: Uint8Array): boolean {
     brands.push(ascii(bytes, offset, offset + 4));
   }
   return brands.some((brand) => HEVC_BRANDS.has(brand));
-}
-
-/**
- * Shrink an RGBA image so its longest side is at most `maxDimension`, averaging the
- * source pixels under each output pixel. Images already within the limit are returned
- * unchanged.
- */
-export function downscaleRgba(source: RgbaImage, maxDimension: number): RgbaImage {
-  const scale = maxDimension / Math.max(source.width, source.height);
-  if (scale >= 1) {
-    return source;
-  }
-  const width = Math.max(1, Math.round(source.width * scale));
-  const height = Math.max(1, Math.round(source.height * scale));
-  const data = new Uint8Array(width * height * 4);
-  // A plain Uint8Array view keeps the inner loop monomorphic whatever array type came in
-  const pixels = new Uint8Array(source.data.buffer, source.data.byteOffset, source.data.byteLength);
-  const xRatio = source.width / width;
-  const yRatio = source.height / height;
-
-  for (let y = 0; y < height; y++) {
-    const y0 = Math.floor(y * yRatio);
-    const y1 = Math.max(y0 + 1, Math.floor((y + 1) * yRatio));
-    for (let x = 0; x < width; x++) {
-      const x0 = Math.floor(x * xRatio);
-      const x1 = Math.max(x0 + 1, Math.floor((x + 1) * xRatio));
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      let a = 0;
-      for (let sy = y0; sy < y1; sy++) {
-        let i = (sy * source.width + x0) * 4;
-        for (let sx = x0; sx < x1; sx++, i += 4) {
-          r += pixels[i];
-          g += pixels[i + 1];
-          b += pixels[i + 2];
-          a += pixels[i + 3];
-        }
-      }
-      const count = (y1 - y0) * (x1 - x0);
-      const o = (y * width + x) * 4;
-      data[o] = Math.round(r / count);
-      data[o + 1] = Math.round(g / count);
-      data[o + 2] = Math.round(b / count);
-      data[o + 3] = Math.round(a / count);
-    }
-  }
-  return { width, height, data };
 }
 
 /**

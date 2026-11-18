@@ -6,6 +6,159 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-11-18: Japan, Tokyo, Kyoto and Osaka place lists sourced from Wikidata (V2-04)
+
+**Branch:** `claude/boards`, from `127fa3f`. Run on Rob's Mac in a separate clone, because the
+cloud session cannot reach Wikidata. No paid calls, no deployment, no live run.
+
+### What changed
+- `src/realPlaces.ts`: `REAL_PLACE_DESTINATIONS` now holds four lists of 14 places each (Japan,
+  Tokyo, Kyoto, Osaka). Every name is the item's English label or an English alias on Wikidata,
+  and every coordinate is its first P625 value. The Japan list uses places outside the three
+  cities (Nara, Hakone, Kanazawa, Hatsukaichi, Fujikawaguchiko, Matsumoto, Otaru, Uji,
+  Kamakura, Nagasaki), so a Japan board does not overlap the city lists.
+- `data/wikidata-candidates/` (new): the raw SPARQL results the places were picked from, with a
+  README listing each query.
+- `tests/boardPlaces.test.ts`: the test that expected every destination to stay as typed while
+  the lists were empty now checks that a nine-frame board typed with Japan, Tokyo, Kyoto and
+  Osaka gets nine different real places from the right lists.
+- `docs/DECISIONS.md` V2-04: records that the lists are sourced and still await Rob's approval.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Place check | `npm run check:places` | first run: 2 problems (`tokyo Q222149: coordinates are 10.1 km from Wikidata's`, `kyoto Q27218: coordinates are 25.7 km from Wikidata's`); both rivers have several P625 values and the check reads the first. After switching to the first value: `4 destinations, 56 places, 0 problems` |
+| Full pipeline | `npm run verify` | first run failed 1 test (the empty-list test above); after the change: exit 0, 15 suites passed, 354 passed, 1 todo, lint clean, `package import ok`, smoke frame `delivered`, smoke board `delivered, 6 of 7 frames` |
+| Intake filter | `normalizeField` on every setting | no name changed (startup check `assertUsableDestinations` also passes) |
+
+### Gaps
+- Rob has not approved the lists. Because they are in `REAL_PLACE_DESTINATIONS`, local and mock
+  boards already use them; emptying the array turns them off.
+- Quietness is a judgement from the item class and general knowledge, not from Wikidata. Arashiyama
+  Bamboo Grove and Osaka Castle Park can be crowded by day and are flagged for Rob.
+- How the image model renders a named place is unverified until a live run.
+
+### Next action
+Rob reviews the four lists and approves them or names places to swap.
+
+---
+
+## 2026-11-18: real places for bare destinations (V2-04), code and checks, no lists yet
+
+**Branch:** `claude/boards` (PR #2), from `d75db95`.
+**Inputs:** Rob's 2026-11-18 project-chat request that a bare destination ("Japan", "Tokyo",
+"Osaka") become a real, named place there, from a default list of 10 to 15 per destination with
+the light varied; his card choice "Japan first" (Japan, Tokyo, Kyoto, Osaka). Recorded as V2-04,
+details P-17. No paid calls, no deployment.
+
+### What changed
+- `src/realPlaces.ts` (new): destination and place types, `REAL_PLACE_DESTINATIONS` (empty until
+  approved), `REAL_PLACE_LIGHTS`, `matchDestination`, setting and label text,
+  `assertUsableDestinations`.
+- `src/boardPlaces.ts`: `planPlaces` turns a bare destination into the next unused place from
+  that destination's shuffled list, with the next light; source `real_place`.
+- `src/engine.ts`: `ExecuteOptions.approvedEnvironment`; the LLM cleanup never sees it, the
+  deterministic filter still does; event `environment_from_list`.
+- `src/board.ts`: `destinations` option, validated at construction; real-place frames run with
+  `approvedEnvironment`; `places_planned` counts real places; frames carry `realPlace`.
+- `src/delivery.ts`: board frames carry `placeName`. `src/runner.ts`: `realPlace` in `run.json`.
+  `src/index.ts`: exports.
+- `src/placeCheck.ts`, `src/checkPlaces.ts` (new) and `npm run check:places`: checks every listed
+  place against live Wikidata (exists, not merged, English name, within 1 km, same country,
+  within 60 km of a city).
+- Tests: new `realPlaces.test.ts`, `placeCheck.test.ts` (fake Wikidata); real-place cases in
+  `boardPlaces.test.ts`, `board.test.ts`, `engine.test.ts`; `fixtureDestination` in
+  `tests/helpers.ts`.
+- Docs: `DECISIONS.md` (V2-04, P-17, answers table), `TRACEABILITY.md`, `README.md`.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Full pipeline | `npm run verify` | exit 0 |
+| Tests | (in verify) | 15 suites passed; 354 passed, 1 todo (AC-11, blocked) |
+| Lint | `npx eslint src tests --ext .ts` | 0 problems |
+| Mock frame and board | `smoke:mock`, `smoke:board` (in verify) | `delivered`; `delivered, 6 of 7 frames` |
+| Place check | `npm run check:places` | `0 destinations, 0 places, 0 problems`, exit 0 (no lists yet) |
+| Coverage | `npx jest --coverage --runInBand` | all files: statements 95.6%, branches 87.9%; `realPlaces.ts` 100%, `placeCheck.ts` 100% statements |
+
+Mutation checks: letting `planPlaces` reuse a place fails 3 `boardPlaces.test.ts` tests; sending the full input
+(with a typed environment) to the LLM cleanup on a real-place frame fails 1.
+
+### Gaps
+- No lists yet. Wikidata is blocked by this session's network policy, and places are not taken
+  from memory, so the Japan, Tokyo, Kyoto and Osaka lists must be sourced in a session that can
+  reach www.wikidata.org, pass `npm run check:places`, and be approved by Rob.
+- Nothing here is a live result; how well the image model renders a named place is unverified
+  until the live test.
+- Single-frame runs do not use the lists (V2-04 covers board frames).
+- PR #3 and PR #4 are stacked on this branch and need this commit merged up.
+
+### Next action
+Source the four Japan lists from Wikidata in a networked session, run `npm run check:places`,
+and send them to Rob for review.
+
+---
+
+## 2026-10-30: v2 boards (V2-02), built and tested with mock models
+
+**Branch:** `claude/boards`, from `e45ca16` on `claude/engine-defects` (PR #1).
+**Inputs:** Rob answered the board spec's open questions on 2026-10-30 (16:9 frames, equal-share
+refund, one passing frame comes alone, repeated places allowed) and approved the spec with
+"Approve, I'll mark settings later". Recorded as V2-02. No paid calls, no deployment.
+
+### What changed
+- `src/board.ts` (new): `VisionFramesBoard`. One new `VisionFramesEngine` run per frame, up to 3
+  at a time; references converted and checked once; a fatal provider failure or cancellation
+  stops new frames; refund count; board image when 2 or more frames pass; board event ledger
+  with no customer text. Never throws.
+- `src/boardPlaces.ts` (new): board sizes, place validation, `planPlaces` (typed first, blanks
+  filled without repeats), `BOARD_SETTINGS_DRAFT` (the spec's 12 draft settings, unmarked).
+- `src/boardImage.ts` (new): grid layouts for 2 to 9 frames, 16:9 cells, cover-crop, alpha
+  flattening, JPEG output via `jpeg-js`; PNG decoding via `pngjs` 7.0.0 (MIT, new dependency).
+- `src/raster.ts` (new): shared RGBA resampling; `downscaleRgba` moved here from `heic.ts`.
+- `src/delivery.ts`: `toPublicBoardOutcome`. `src/config.ts`: `BOARD`.
+- `src/nanoBananaModel.ts`: Gemini requests default to 16:9 (`DEFAULT_GEMINI_ASPECT_RATIO`).
+- `src/runner.ts`: `--board 3|7|9`, `--place` (repeatable), `--concurrency`; writes
+  `frame-<n>.<ext>`, `board.jpg` and a board `run.json` with the refund due. Mock scenarios
+  `partial` and `quota` in `src/dev/mockModels.ts`. New `npm run smoke:board`, part of verify.
+- Tests: new `board.test.ts`, `boardPlaces.test.ts`, `boardImage.test.ts`, `raster.test.ts`;
+  `heic.test.ts` and `nanoBananaModel.test.ts` adjusted.
+- Docs: `DECISIONS.md` (V2-02, 2026-10-30 answers, P-14, P-15, O-01), `TRACEABILITY.md` (v2
+  boards table, RQ-01, AC-19), `README.md`, `.env.example`, `CLAUDE.md` (boards now in scope).
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Full pipeline | `npm run verify` | exit 0 |
+| Tests | (in verify) | 13 suites passed; 313 passed, 1 todo (AC-11, blocked) |
+| Lint | `npm run lint` | 0 problems |
+| Import | `npm run check:import` | `package import ok` |
+| Mock frame | `npm run smoke:mock` | `public outcome: delivered`; `success, generations 1/3, refinements 1/2` |
+| Mock board | `npm run smoke:board` | `public outcome: delivered, 6 of 7 frames` with `board.jpg`; `partial, delivered 6, refunded 1` |
+| Other mock boards | `--board 9 --scenario refine`; `--board 7 --scenario quota --concurrency 1`; `--board 3 --scenario stop` | 9 of 9 with a 3024x1764 board; 2 of 7, halted on provider failure, 5 refunded; `ended`, 3 refunded |
+| Board image check | opened `out/smoke-board/board.jpg` and `out/smoke-board9/board.jpg` | 3 x 2 and 3 x 3 grids of the mock frames on the off-white background, even gutters |
+| Coverage | `npx jest --coverage --runInBand` | statements 95.1%, branches 87.2%, functions 98.6%, lines 94.9% |
+| Runtime audit | `npm audit --omit=dev` | 0 vulnerabilities |
+| Board image timing | one-off Node script, 9 noisy 1376x768 PNG frames | 9 frames: 1.5 s, 3024x1764; 7 frames: 1.1 s, 4008x1200; process memory about 350 MB |
+| Run record privacy | `grep` for the identity and place text in `out/smoke-board/run.json` | 0 matches |
+
+Mutation check: disabling the fatal-failure halt fails 4 board tests, and ignoring the
+concurrency limit fails 8.
+
+### Gaps
+- Nothing here is a live result. Real frames, likeness, refinement edits, timing, provider
+  concurrency limits and cost per board are unverified until the live test (O-06).
+- The fill-in settings list is the unmarked draft; it changes when Rob marks it.
+- Language cleanup runs once per frame, not once per board as the spec's cost line says (P-15).
+- WebP frames get no board image (P-14); Gemini has returned PNG or JPEG in adapter tests only.
+- No tester page, storage, payments or prices yet.
+
+### Next action
+Rob marks the settings list; then, with his go-ahead, the bounded live test (O-06), which needs
+API keys as environment secrets, network access to api.openai.com, and consented photos.
+
+---
+
 ## 2026-10-29: owner decisions, refinement fallback (V2-01), HEIC references
 
 **Branch:** `claude/engine-defects` (PR #1), from `2c8fa30`.

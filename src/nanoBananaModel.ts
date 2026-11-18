@@ -29,6 +29,8 @@ import { ProviderMetadataListener } from './providerMetadata';
 
 export const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-3-pro-image';
 export const DEFAULT_GEMINI_TIMEOUT_MS = 180_000;
+/** R1 sets no shape; the owner chose 16:9 landscape frames on 2026-10-30 (V2-02) */
+export const DEFAULT_GEMINI_ASPECT_RATIO = '16:9';
 
 /** Role labels so the provider knows what each attached image is for */
 export const REFERENCE_IMAGES_LABEL = 'Reference images of the user:';
@@ -45,7 +47,7 @@ export interface NanoBananaOptions {
   client?: GeminiModelsClient;
   model?: string;
   timeoutMs?: number;
-  /** Not fixed by R1; left to the provider default unless set */
+  /** Defaults to DEFAULT_GEMINI_ASPECT_RATIO */
   aspectRatio?: string;
   /** Not fixed by R1; left to the provider default unless set */
   imageSize?: string;
@@ -67,7 +69,7 @@ const REFUSAL_FINISH_REASONS = new Set<string>([
 export class NanoBananaImageGenerationModel implements ImageGenerationModel {
   readonly model: string;
   private readonly client: GeminiModelsClient;
-  private readonly imageConfig?: GenerateContentConfig['imageConfig'];
+  private readonly imageConfig: GenerateContentConfig['imageConfig'];
   private readonly onResponse?: ProviderMetadataListener;
 
   constructor(options: NanoBananaOptions) {
@@ -90,12 +92,10 @@ export class NanoBananaImageGenerationModel implements ImageGenerationModel {
       this.client = ai.models;
     }
 
-    if (options.aspectRatio || options.imageSize) {
-      this.imageConfig = {
-        ...(options.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
-        ...(options.imageSize ? { imageSize: options.imageSize } : {}),
-      };
-    }
+    this.imageConfig = {
+      aspectRatio: options.aspectRatio || DEFAULT_GEMINI_ASPECT_RATIO,
+      ...(options.imageSize ? { imageSize: options.imageSize } : {}),
+    };
   }
 
   /**
@@ -129,7 +129,7 @@ export class NanoBananaImageGenerationModel implements ImageGenerationModel {
         responseModalities: ['TEXT', 'IMAGE'],
         // Do not keep request logs (which contain the user's photos) at the provider
         store: false,
-        ...(this.imageConfig ? { imageConfig: this.imageConfig } : {}),
+        imageConfig: this.imageConfig,
         ...(signal ? { abortSignal: signal } : {}),
       },
     };
