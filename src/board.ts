@@ -14,6 +14,9 @@
  * is cancelled, and frames never started are refunded too. A board image is composed
  * when at least 2 frames are delivered; a single delivered frame comes alone.
  *
+ * A frame whose place is a real place from an owner-approved destination list (V2-04) gets
+ * it as the run's approved environment, so the optional LLM step never broadens it.
+ *
  * Events and records hold no customer text and no image bytes beyond the frames'
  * own results.
  */
@@ -21,6 +24,7 @@
 import { BOARD } from './config';
 import { BoardImageError, BoardImageOptions, composeBoard } from './boardImage';
 import { BoardSize, PlannedPlace, assertUsableSettings, BOARD_SETTINGS_DRAFT, isBoardSize, planPlaces, validatePlaces } from './boardPlaces';
+import { Destination, REAL_PLACE_DESTINATIONS, assertUsableDestinations } from './realPlaces';
 import { toPublicOutcome } from './delivery';
 import {
   EngineOptions,
@@ -43,8 +47,10 @@ export interface BoardOptions {
   concurrency?: number;
   /** Fill-in settings; defaults to the draft list until the owner marks it */
   settings?: readonly string[];
-  /** Source of randomness for choosing fill-in settings */
+  /** Source of randomness for choosing fill-in settings and real places */
   random?: () => number;
+  /** Owner-approved real places for bare destinations; defaults to REAL_PLACE_DESTINATIONS */
+  destinations?: readonly Destination[];
   /** Passed to every frame's engine run */
   engineOptions?: EngineOptions;
   image?: BoardImageOptions;
@@ -68,6 +74,8 @@ export interface BoardFrame {
   /** 1-based position on the board */
   position: number;
   placeSource: PlannedPlace['source'];
+  /** For a real place: its list, its Wikidata item, and the name the customer is shown */
+  realPlace?: PlannedPlace['realPlace'];
   status: BoardFrameStatus;
   /** The frame's own engine result; absent when the frame never started */
   result?: EngineResult;
@@ -81,7 +89,7 @@ export type BoardEvent =
   | { type: 'fields_dropped'; count: number }
   | { type: 'references_converted'; count: number }
   | { type: 'references_rejected'; reason: string }
-  | { type: 'places_planned'; customer: number; filled: number }
+  | { type: 'places_planned'; customer: number; realPlaces: number; filled: number }
   | { type: 'frame_started'; position: number }
   | { type: 'frame_finished'; position: number; exitReason: ExitReason; delivered: boolean }
   | { type: 'board_halted'; cause: BoardHalt; position?: number }
@@ -149,6 +157,7 @@ export class VisionFramesBoard {
   private readonly concurrency: number;
   private readonly settings: readonly string[];
   private readonly random: () => number;
+  private readonly destinations: readonly Destination[];
 
   constructor(
     private readonly generationModel: ImageGenerationModel,
@@ -163,6 +172,8 @@ export class VisionFramesBoard {
     this.settings = options.settings ?? BOARD_SETTINGS_DRAFT;
     assertUsableSettings(this.settings);
     this.random = options.random ?? Math.random;
+    this.destinations = options.destinations ?? REAL_PLACE_DESTINATIONS;
+    assertUsableDestinations(this.destinations);
   }
 
   /**
@@ -229,10 +240,20 @@ export class VisionFramesBoard {
       return 'empty_intent';
     }
 
-    const plan = planPlaces(intake.places, intake.size, this.settings, this.random);
-    const customer = plan.filter((place) => place.source === 'customer').length;
-    events.push({ type: 'places_planned', customer, filled: plan.length - customer });
-    board.frames = plan.map((place, i) => ({ position: i + 1, placeSource: place.source, status: 'not_started' }));
+    const plan = planPlaces(intake.places, intake.size, this.settings, this.random, this.destinations);
+    const count = (source: PlannedPlace['source']) => plan.filter((place) => place.source === source).length;
+    events.push({
+      type: 'places_planned',
+      customer: count('customer'),
+      realPlaces: count('real_place'),
+      filled: count('settings_list'),
+    });
+    board.frames = plan.map((place, i) => ({
+      position: i + 1,
+      placeSource: place.source,
+      ...(place.realPlace ? { realPlace: place.realPlace } : {}),
+      status: 'not_started',
+    }));
 
     const halt = (cause: BoardHalt, position?: number) => {
       if (!board.halted) {
@@ -257,7 +278,11 @@ export class VisionFramesBoard {
           references,
           this.options.engineOptions
         );
-        const result = await engine.execute({ ...intake.frameInput, environmentPreference: plan[index].place }, { signal });
+        const { source, place } = plan[index];
+        const result =
+          source === 'real_place'
+            ? await engine.execute(intake.frameInput, { signal, approvedEnvironment: place })
+            : await engine.execute({ ...intake.frameInput, environmentPreference: place }, { signal });
         const delivered = toPublicOutcome(result).status === 'delivered';
         board.frames[index] = { ...board.frames[index], status: delivered ? 'delivered' : 'missing', result };
         events.push({ type: 'frame_finished', position, exitReason: result.exitReason, delivered });

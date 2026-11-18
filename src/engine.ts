@@ -18,7 +18,7 @@ import { CONFIG, LIMITS } from './config';
 import { FATAL_FAILURE_KINDS, ProviderFailureKind, failureKindOf } from './errors';
 import { CandidateImage, ImagePayload, ReferenceImage, validateImageBytes } from './images';
 import { prepareReferences, reencodeReferences, validateRawInput } from './intake';
-import { normalize } from './normalize';
+import { normalize, normalizeField } from './normalize';
 import { buildCanonicalPrompt } from './promptBuilder';
 import { ViolationCode, checkQAGate, validateAnalysisReport } from './qaGate';
 import { RefinementType, buildRefinementPrompt } from './refinement';
@@ -93,6 +93,7 @@ export type EngineEvent =
   | { type: 'semantic_normalization_requested' }
   | { type: 'semantic_normalization_failed'; kind: ProviderFailureKind }
   | { type: 'normalized'; method: 'deterministic' | 'semantic' | 'deterministic_fallback' }
+  | { type: 'environment_from_list' }
   | { type: 'generation_requested'; attempt: number }
   | { type: 'refinement_requested'; attempt: number; refinement: RefinementType; baseId: string }
   | { type: 'call_failed'; operation: ImageOperation; attempt: number; kind: ProviderFailureKind }
@@ -133,6 +134,13 @@ export interface EngineOptions {
 
 export interface ExecuteOptions {
   signal?: AbortSignal;
+  /**
+   * A setting the system chose from an owner-approved list of real places (V2-04). It
+   * replaces any environment preference in the input, is never sent to the optional LLM
+   * step (which keeps settings broad and would drop the place name), and still passes the
+   * deterministic filter.
+   */
+  approvedEnvironment?: string;
 }
 
 /**
@@ -271,7 +279,7 @@ export class VisionFramesEngine {
   async execute(rawInput: unknown, options: ExecuteOptions = {}): Promise<EngineResult> {
     const run = new RunState();
     try {
-      await this.runPipeline(rawInput, run, options.signal);
+      await this.runPipeline(rawInput, run, options.signal, options.approvedEnvironment);
       if (run.active) {
         run.stop('generations_exhausted');
       }
@@ -284,7 +292,12 @@ export class VisionFramesEngine {
     return run.toResult();
   }
 
-  private async runPipeline(rawInput: unknown, run: RunState, signal?: AbortSignal): Promise<void> {
+  private async runPipeline(
+    rawInput: unknown,
+    run: RunState,
+    signal?: AbortSignal,
+    approvedEnvironment?: string
+  ): Promise<void> {
     // Step 1: Intake
     const intake = validateRawInput(rawInput);
     if (!intake.ok) {
@@ -319,9 +332,21 @@ export class VisionFramesEngine {
     }
 
     // Step 2: Normalize & Filter
-    const cleanIntent = await this.normalizeIntent(intake.input, run, signal);
+    const userIntent: RawInput =
+      approvedEnvironment === undefined
+        ? intake.input
+        : {
+            identityDirection: intake.input.identityDirection,
+            ...(intake.input.moodTone !== undefined ? { moodTone: intake.input.moodTone } : {}),
+          };
+    let cleanIntent = await this.normalizeIntent(userIntent, run, signal);
     if (!run.active) {
       return;
+    }
+    if (approvedEnvironment !== undefined) {
+      run.record({ type: 'environment_from_list' });
+      const environmentPreference = normalizeField(approvedEnvironment);
+      cleanIntent = environmentPreference ? { ...cleanIntent, environmentPreference } : cleanIntent;
     }
     if (!cleanIntent.identityDirection) {
       run.stop('empty_intent');

@@ -64,8 +64,9 @@ same to a user (`toPublicOutcome`).
 ```
 reference images + { size: 3 | 7 | 9, identityDirection, moodTone?, places?: up to one per frame }
   -> references converted and checked once
-  -> places: typed places that survive the filter, in order; blanks filled from the
-     settings list with no repeats
+  -> places: typed places that survive the filter, in order (a bare destination with an
+     approved list, such as "Japan", becomes a real named place there, light varied);
+     blanks filled from the settings list with no repeats
   -> one full v1 run per frame (above), up to 3 at a time, with that frame's place as its
      environment preference; each frame keeps its own caps and hard stops
   -> a fatal provider failure or cancellation stops new frames from starting
@@ -75,8 +76,13 @@ reference images + { size: 3 | 7 | 9, identityDirection, moodTone?, places?: up 
 ```
 
 `toPublicBoardOutcome` gives the delivered frames, the board image, and how many frames were
-refunded, never why. Details and the choices the spec left open: `docs/DECISIONS.md` V2-02,
-P-14 and P-15.
+refunded, never why, and names the real place on each frame set in one. Details and the
+choices the spec left open: `docs/DECISIONS.md` V2-02, V2-04, P-14, P-15 and P-17.
+
+Real-place lists live in `src/realPlaces.ts` and are empty until the owner approves the first
+ones. Every listed place carries its Wikidata item; `npm run check:places` (needs network
+access to www.wikidata.org) confirms each one exists, under that name, near those coordinates,
+in that country and city, and exits 1 on any problem.
 
 ## Source layout
 
@@ -90,6 +96,7 @@ P-14 and P-15.
 | `src/refinement.ts` | Permitted refinement categories and system-owned edit text |
 | `src/delivery.ts` | Public, silent outcome for a frame or a board |
 | `src/board.ts`, `src/boardPlaces.ts`, `src/boardImage.ts`, `src/raster.ts` | v2 board runner, place intake and settings list, board image |
+| `src/realPlaces.ts`, `src/placeCheck.ts`, `src/checkPlaces.ts` | v2 real-place lists for bare destinations and their Wikidata check |
 | `src/nanoBananaModel.ts` | Gemini generate and refine adapter |
 | `src/openAIAnalysisModel.ts`, `src/openAISemanticNormalizer.ts` | OpenAI analyzer and normalizer adapters |
 | `src/runner.ts`, `src/dev/` | Local runner and offline mock models |

@@ -18,7 +18,8 @@ import { ImageAnalysisModel, ImageGenerationModel } from '../src/engine';
 import { ProviderError } from '../src/errors';
 import { ImagePayload } from '../src/images';
 import { SemanticNormalizer } from '../src/semanticNormalizer';
-import { fail, pass, png, references, webpVp8x } from './helpers';
+import { REAL_PLACE_LIGHTS } from '../src/realPlaces';
+import { fail, fixtureDestination, pass, png, references, webpVp8x } from './helpers';
 
 afterEach(() => jest.restoreAllMocks());
 
@@ -68,6 +69,8 @@ interface FakeOptions {
   onAnalyze?: (place: string, call: number) => void;
   /** Return WebP headers instead of PNGs */
   webp?: boolean;
+  /** Further places the fake should recognise in prompts, such as real places */
+  places?: string[];
 }
 
 interface Fake {
@@ -79,7 +82,7 @@ interface Fake {
 }
 
 function fakeModels(options: FakeOptions = {}): Fake {
-  const known = [...TYPED, ...SETTINGS];
+  const known = [...TYPED, ...SETTINGS, ...(options.places ?? [])];
   const placeOf = new WeakMap<Uint8Array, string>();
   const calls: Fake['calls'] = [];
   let images = 0;
@@ -198,7 +201,7 @@ describe('a board is one independent v1 run per frame', () => {
       [2, 'settings_list', 'delivered'],
       [3, 'settings_list', 'delivered'],
     ]);
-    expect(eventsOf(result, 'places_planned')).toEqual([{ type: 'places_planned', customer: 1, filled: 2 }]);
+    expect(eventsOf(result, 'places_planned')).toEqual([{ type: 'places_planned', customer: 1, realPlaces: 0, filled: 2 }]);
     for (const place of [TYPED[0], SETTINGS[0], SETTINGS[1]]) {
       expect(fake.callsFor(place)).toEqual(['generate', 'analyze']);
     }
@@ -562,7 +565,7 @@ describe('board intake', () => {
 
     expect(result.frames.map((f) => f.placeSource)).toEqual(['customer', 'settings_list', 'settings_list']);
     expect(fake.callsFor(TYPED[0])).toEqual(['generate', 'analyze']);
-    expect(eventsOf(result, 'places_planned')).toEqual([{ type: 'places_planned', customer: 1, filled: 2 }]);
+    expect(eventsOf(result, 'places_planned')).toEqual([{ type: 'places_planned', customer: 1, realPlaces: 0, filled: 2 }]);
   });
 
   it('ends before any frame when the identity filters down to nothing', async () => {
@@ -606,6 +609,102 @@ describe('board intake', () => {
     expect(result.exitReason).toBe('complete');
     expect(JSON.stringify(result.events)).not.toContain('secret');
     expect(JSON.stringify(result.frames.map((f) => f.result?.events))).not.toContain('secret');
+  });
+});
+
+describe('real places for bare destinations (V2-04)', () => {
+  const city = fixtureDestination('city', ['Testburg'], 9, 2000);
+  const settingOf = (i: number, light: string) => `${city.places[i].name}, ${city.places[i].city}, Testland, ${light}`;
+  // With random () => 0 the list is used in order, and lights in order
+  const realSettings = REAL_PLACE_LIGHTS.map((light, i) => settingOf(i, light));
+
+  it('sets each frame that names the destination in a different listed place, with varied light', async () => {
+    const fake = fakeModels({ places: realSettings });
+    const prompts: string[] = [];
+    const generate = fake.generator.generate.bind(fake.generator);
+    fake.generator.generate = (call) => {
+      prompts.push(call.prompt);
+      return generate(call);
+    };
+    const result = await board(fake, { destinations: [city] }).execute({
+      size: 3,
+      identityDirection: IDENTITY,
+      places: ['Testburg', 'somewhere in Testburg', 'testburg'],
+    });
+
+    expect(result.exitReason).toBe('complete');
+    expect(eventsOf(result, 'places_planned')).toEqual([{ type: 'places_planned', customer: 0, realPlaces: 3, filled: 0 }]);
+    expect(result.frames.map((f) => [f.placeSource, f.realPlace?.wikidata])).toEqual([
+      ['real_place', city.places[0].wikidata],
+      ['real_place', city.places[1].wikidata],
+      ['real_place', city.places[2].wikidata],
+    ]);
+    for (const setting of realSettings) {
+      expect(fake.callsFor(setting)).toEqual(['generate', 'analyze']);
+      expect(prompts.filter((p) => p.includes(`Environment preference: ${setting}`))).toHaveLength(1);
+    }
+    for (const frame of result.frames) {
+      expect(frame.result?.events).toContainEqual({ type: 'environment_from_list' });
+    }
+    expectTerminated(result);
+  });
+
+  it('never sends a real place to the LLM step, which still sees every other frame', async () => {
+    const seen: unknown[] = [];
+    const semanticNormalizer: SemanticNormalizer = {
+      async normalize(input) {
+        seen.push(input);
+        return { identityDirection: 'calm', environmentPreference: input.environmentPreference ?? 'a city street', moodTone: '' };
+      },
+    };
+    const fake = fakeModels({ places: realSettings });
+    const result = await board(fake, { destinations: [city], engineOptions: { semanticNormalizer } }).execute({
+      size: 3,
+      identityDirection: IDENTITY,
+      places: ['Testburg', TYPED[0]],
+    });
+
+    expect(result.exitReason).toBe('complete');
+    expect(fake.callsFor(realSettings[0])).toEqual(['generate', 'analyze']);
+    expect(fake.calls.some((c) => c.place === TYPED[0])).toBe(true);
+    expect(seen).toHaveLength(3);
+    expect(JSON.stringify(seen)).not.toContain(city.places[0].name);
+    expect(seen).toContainEqual({ identityDirection: IDENTITY, environmentPreference: TYPED[0] });
+    expect(seen).toContainEqual({ identityDirection: IDENTITY });
+  });
+
+  it('names the real place on its delivered frame, and nowhere in the events', async () => {
+    const fake = fakeModels({ places: realSettings });
+    const result = await board(fake, { destinations: [city] }).execute({
+      size: 3,
+      identityDirection: IDENTITY,
+      places: [TYPED[0], 'Testburg'],
+    });
+    const outcome = toPublicBoardOutcome(result);
+
+    expect(outcome.status).toBe('delivered');
+    if (outcome.status !== 'delivered') return;
+    const label = `${city.places[0].name}, ${city.places[0].city}`;
+    expect(outcome.frames.map((f) => f.placeName)).toEqual([undefined, label, undefined]);
+    expect(JSON.stringify(result.events)).not.toContain(city.places[0].name);
+  });
+
+  it('keeps a specific place or an unlisted destination as typed', async () => {
+    const fake = fakeModels();
+    const result = await board(fake, { destinations: [city] }).execute({
+      size: 3,
+      identityDirection: IDENTITY,
+      places: [TYPED[0], TYPED[1]],
+    });
+
+    expect(result.frames.map((f) => f.placeSource)).toEqual(['customer', 'customer', 'settings_list']);
+    expect(result.frames.every((f) => f.realPlace === undefined)).toBe(true);
+  });
+
+  it('refuses a destination list that could not fill the largest board', () => {
+    const fake = fakeModels();
+    const short = fixtureDestination('short', ['Shortville'], 8);
+    expect(() => board(fake, { destinations: [short] })).toThrow('at least 9 places');
   });
 });
 

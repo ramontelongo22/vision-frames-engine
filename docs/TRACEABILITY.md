@@ -69,6 +69,19 @@ commands and output behind each PASS.
 | Silence: reasons never shown; nothing passes ends like a stopped frame | `toPublicBoardOutcome` | PASS (engine boundary) | `board.test.ts` public outcome cases; events carry no customer text |
 | Cost per board measured | Runner `run.json` timings and usage | NOT VERIFIED (O-06) | No live run |
 
+## v2 real places for bare destinations (V2-04)
+
+| Requirement | Where it is enforced | Status | Evidence |
+|-------------|----------------------|--------|----------|
+| A bare destination with an approved list becomes a real, named place there | `matchDestination`, `planPlaces` | PASS (mock) | `realPlaces.test.ts` matching; `boardPlaces.test.ts` and `board.test.ts` real places |
+| A specific place, or a destination with no list, stays as typed | `matchDestination`, `planPlaces` | PASS | `boardPlaces.test.ts` "keeps a specific place" |
+| A different place per frame, light varied | `planPlaces`, `REAL_PLACE_LIGHTS` | PASS | `boardPlaces.test.ts` "never repeats a place", "next light" |
+| The place name is not broadened by the language cleanup and still passes the filter | `ExecuteOptions.approvedEnvironment`; `assertUsableDestinations` | PASS (mock) | `engine.test.ts` V2-04 block; `board.test.ts` "never sends a real place to the LLM step" |
+| Each download names its place | `toPublicBoardOutcome` `placeName` | PASS (engine boundary) | `board.test.ts` "names the real place" |
+| Every listed place exists, under that name, at those coordinates, in that country and city | `checkDestinations`, `npm run check:places` | PASS for the check logic (fake Wikidata); lists NOT VERIFIED | `placeCheck.test.ts`; no lists sourced yet |
+| Lists approved by the owner | `REAL_PLACE_DESTINATIONS` | NOT STARTED | Empty until the Japan lists are sourced and approved |
+| No added cost | No model call chooses places | PASS | Lists are static; `planPlaces` makes no calls |
+
 ## Defect ledger (handoff §7.5)
 
 | Defect | Status | Where |

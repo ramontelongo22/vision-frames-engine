@@ -29,11 +29,16 @@ export interface PublicImage {
 
 export type PublicOutcome = { status: 'delivered'; image: PublicImage } | { status: 'ended' };
 
+export interface PublicBoardFrame extends PublicImage {
+  /** The real place the frame is set in, when it came from a destination list (V2-04) */
+  placeName?: string;
+}
+
 export type PublicBoardOutcome =
   | {
       status: 'delivered';
       /** Delivered frames in board order */
-      frames: PublicImage[];
+      frames: PublicBoardFrame[];
       /** Present when two or more frames were delivered */
       boardImage?: PublicImage;
       framesOrdered: number;
@@ -51,9 +56,12 @@ export function toPublicOutcome(result: EngineResult): PublicOutcome {
 }
 
 export function toPublicBoardOutcome(result: BoardResult): PublicBoardOutcome {
-  const frames = result.frames.flatMap((frame) => {
+  const frames = result.frames.flatMap((frame): PublicBoardFrame[] => {
     const outcome = frame.status === 'delivered' && frame.result ? toPublicOutcome(frame.result) : undefined;
-    return outcome?.status === 'delivered' ? [outcome.image] : [];
+    if (outcome?.status !== 'delivered') {
+      return [];
+    }
+    return [frame.realPlace ? { ...outcome.image, placeName: frame.realPlace.label } : outcome.image];
   });
   if (frames.length === 0 || result.size === undefined) {
     return { status: 'ended' };
