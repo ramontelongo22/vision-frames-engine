@@ -573,6 +573,63 @@ describe('VisionFramesEngine', () => {
     });
   });
 
+  describe('approved environment from a real-place list (V2-04)', () => {
+    const approved = 'Test Riverside, Testburg, Testland, at dusk';
+
+    it('puts the approved place in the prompt in place of any typed environment', async () => {
+      const h = harness({ analyses: [pass()] });
+      const result = await h.engine.execute(
+        { identityDirection: 'calm', environmentPreference: 'a volcano', moodTone: 'quiet' },
+        { approvedEnvironment: approved }
+      );
+
+      expect(result.exitReason).toBe('success');
+      expect(result.events).toContainEqual({ type: 'environment_from_list' });
+      expect(h.generateCalls[0].prompt).toBe(
+        buildCanonicalPrompt({ identityDirection: 'calm', environmentPreference: approved, moodTone: 'quiet' })
+      );
+      expect(h.generateCalls[0].prompt).not.toContain('volcano');
+      expectCleanTermination(result, h);
+    });
+
+    it('never sends the approved place to the LLM step, and keeps it when the LLM returns a broad setting', async () => {
+      const seen: unknown[] = [];
+      const semanticNormalizer: SemanticNormalizer = {
+        async normalize(raw) {
+          seen.push(raw);
+          return { identityDirection: 'calm', environmentPreference: 'a city street', moodTone: '' };
+        },
+      };
+      const h = harness({ analyses: [pass()], engineOptions: { semanticNormalizer } });
+      const result = await h.engine.execute(
+        { identityDirection: 'calm', environmentPreference: 'a volcano', moodTone: 'quiet' },
+        { approvedEnvironment: approved }
+      );
+
+      expect(result.events).toContainEqual({ type: 'normalized', method: 'semantic' });
+      expect(seen).toEqual([{ identityDirection: 'calm', moodTone: 'quiet' }]);
+      expect(h.generateCalls[0].prompt).toContain(`Environment preference: ${approved}`);
+      expect(h.generateCalls[0].prompt).not.toContain('a city street');
+    });
+
+    it('still passes the approved place through the deterministic filter', async () => {
+      const h = harness({ analyses: [pass()] });
+      await h.engine.execute(input, { approvedEnvironment: 'A wealthy harbour at dusk' });
+
+      expect(h.generateCalls[0].prompt).not.toMatch(/wealthy/i);
+      expect(h.generateCalls[0].prompt).toContain('harbour at dusk');
+    });
+
+    it('still ends before generation when the identity filters down to nothing', async () => {
+      const h = harness({ analyses: [pass()] });
+      const result = await h.engine.execute({ identityDirection: 'sitting at a desk' }, { approvedEnvironment: approved });
+
+      expect(result.exitReason).toBe('empty_intent');
+      expect(h.ledger).toEqual([]);
+      expectCleanTermination(result, h);
+    });
+  });
+
   describe('cancellation', () => {
     it('makes no model call when the signal is already aborted', async () => {
       const controller = new AbortController();

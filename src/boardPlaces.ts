@@ -9,10 +9,23 @@
  * with no setting used twice on one board; typed places may repeat.
  *
  * Board order is the typed places in the order given, then the filled-in settings.
+ *
+ * A typed place that is only a destination with an owner-approved list ("Japan", "Osaka")
+ * becomes a real, named place from that list (V2-04): a different place for each such frame
+ * on the board, with the light varied.
  */
 
 import { BOARD, LIMITS } from './config';
 import { normalizeField } from './normalize';
+import {
+  Destination,
+  REAL_PLACE_DESTINATIONS,
+  REAL_PLACE_LIGHTS,
+  RealPlace,
+  matchDestination,
+  realPlaceLabel,
+  realPlaceSetting,
+} from './realPlaces';
 
 export type BoardSize = (typeof BOARD.sizes)[number];
 
@@ -43,9 +56,14 @@ export const BOARD_SETTINGS_DRAFT: readonly string[] = [
 ];
 
 export interface PlannedPlace {
-  source: 'customer' | 'settings_list';
-  /** Passed to the frame's engine run as its environment preference */
+  source: 'customer' | 'real_place' | 'settings_list';
+  /**
+   * The frame's environment preference. A customer place is filtered by the frame's run like
+   * the v1 environment field; a real place or setting comes from an owner-approved list.
+   */
   place: string;
+  /** For a real place: its list, its Wikidata item, and the name the customer is shown */
+  realPlace?: { destination: string; wikidata: string; label: string };
 }
 
 export type PlacesValidation = { ok: true; places: string[] } | { ok: false; reason: string };
@@ -102,19 +120,54 @@ export function assertUsableSettings(settings: readonly string[]): void {
   }
 }
 
+/** Fisher-Yates shuffle of a copy */
+function shuffled<T>(items: readonly T[], random: () => number): T[] {
+  const copy = [...items];
+  for (let i = 0; i < copy.length - 1; i++) {
+    const pick = i + Math.floor(random() * (copy.length - i));
+    [copy[i], copy[pick]] = [copy[pick], copy[i]];
+  }
+  return copy;
+}
+
 /**
- * One place per frame: typed places that survive the filter, in order, then settings
- * chosen at random without repeats for the remaining frames.
+ * One place per frame: typed places that survive the filter, in order, with bare
+ * destinations turned into real places, then settings chosen at random without repeats for
+ * the remaining frames. No real place appears twice on one board; if a list ever runs out,
+ * the typed destination is kept as typed.
  */
 export function planPlaces(
   typed: readonly string[],
   size: BoardSize,
   settings: readonly string[],
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  destinations: readonly Destination[] = REAL_PLACE_DESTINATIONS
 ): PlannedPlace[] {
-  const plan: PlannedPlace[] = typed
-    .filter((place) => normalizeField(place) !== '')
-    .map((place) => ({ source: 'customer' as const, place }));
+  const plan: PlannedPlace[] = [];
+  const pools = new Map<Destination, RealPlace[]>();
+  const used = new Set<string>();
+  let lights = 0;
+  for (const place of typed) {
+    if (normalizeField(place) === '') {
+      continue;
+    }
+    const destination = matchDestination(place, destinations);
+    if (destination && !pools.has(destination)) {
+      pools.set(destination, shuffled(destination.places, random));
+    }
+    const real = destination && pools.get(destination)?.find((candidate) => !used.has(candidate.wikidata));
+    if (!destination || !real) {
+      plan.push({ source: 'customer', place });
+      continue;
+    }
+    used.add(real.wikidata);
+    const light = REAL_PLACE_LIGHTS[lights++ % REAL_PLACE_LIGHTS.length];
+    plan.push({
+      source: 'real_place',
+      place: realPlaceSetting(real, destination, light),
+      realPlace: { destination: destination.key, wikidata: real.wikidata, label: realPlaceLabel(real) },
+    });
+  }
 
   const pool = [...settings];
   // Fisher-Yates, stopping once enough settings are drawn

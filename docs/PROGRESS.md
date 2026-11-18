@@ -6,6 +6,85 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-11-18: real-places update (PR #2, `127fa3f`) merged into PRs #3 and #4
+
+**Branches:** `claude/hardening` from `f65bd54`, then `claude/tooling` from `143b3a6`. Merge
+commits only; no history rewritten. No paid calls, no deployment.
+
+### What changed
+- Conflicts resolved: the `src/engine.ts` imports (kept `reencodeReferences` from hardening and
+  `normalizeField` from boards) and appended entries in `DECISIONS.md` (V2-03 and V2-04, both
+  answers rows) and this log (both entries, newest first).
+
+### Results
+| Branch | Command | Result |
+|--------|---------|--------|
+| `claude/hardening`, Node 22.22.0 | `npm ci && npm run verify` | exit 0; 17 suites passed; 374 passed, 1 todo (AC-11, blocked) |
+
+### Gaps
+- Nothing new. The real-places lists are still empty (V2-04), so boards behave as before.
+
+### Next action
+Owner: merge PRs #1 to #4 in order.
+
+---
+
+## 2026-11-18: real places for bare destinations (V2-04), code and checks, no lists yet
+
+**Branch:** `claude/boards` (PR #2), from `d75db95`.
+**Inputs:** Rob's 2026-11-18 project-chat request that a bare destination ("Japan", "Tokyo",
+"Osaka") become a real, named place there, from a default list of 10 to 15 per destination with
+the light varied; his card choice "Japan first" (Japan, Tokyo, Kyoto, Osaka). Recorded as V2-04,
+details P-17. No paid calls, no deployment.
+
+### What changed
+- `src/realPlaces.ts` (new): destination and place types, `REAL_PLACE_DESTINATIONS` (empty until
+  approved), `REAL_PLACE_LIGHTS`, `matchDestination`, setting and label text,
+  `assertUsableDestinations`.
+- `src/boardPlaces.ts`: `planPlaces` turns a bare destination into the next unused place from
+  that destination's shuffled list, with the next light; source `real_place`.
+- `src/engine.ts`: `ExecuteOptions.approvedEnvironment`; the LLM cleanup never sees it, the
+  deterministic filter still does; event `environment_from_list`.
+- `src/board.ts`: `destinations` option, validated at construction; real-place frames run with
+  `approvedEnvironment`; `places_planned` counts real places; frames carry `realPlace`.
+- `src/delivery.ts`: board frames carry `placeName`. `src/runner.ts`: `realPlace` in `run.json`.
+  `src/index.ts`: exports.
+- `src/placeCheck.ts`, `src/checkPlaces.ts` (new) and `npm run check:places`: checks every listed
+  place against live Wikidata (exists, not merged, English name, within 1 km, same country,
+  within 60 km of a city).
+- Tests: new `realPlaces.test.ts`, `placeCheck.test.ts` (fake Wikidata); real-place cases in
+  `boardPlaces.test.ts`, `board.test.ts`, `engine.test.ts`; `fixtureDestination` in
+  `tests/helpers.ts`.
+- Docs: `DECISIONS.md` (V2-04, P-17, answers table), `TRACEABILITY.md`, `README.md`.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Full pipeline | `npm run verify` | exit 0 |
+| Tests | (in verify) | 15 suites passed; 354 passed, 1 todo (AC-11, blocked) |
+| Lint | `npx eslint src tests --ext .ts` | 0 problems |
+| Mock frame and board | `smoke:mock`, `smoke:board` (in verify) | `delivered`; `delivered, 6 of 7 frames` |
+| Place check | `npm run check:places` | `0 destinations, 0 places, 0 problems`, exit 0 (no lists yet) |
+| Coverage | `npx jest --coverage --runInBand` | all files: statements 95.6%, branches 87.9%; `realPlaces.ts` 100%, `placeCheck.ts` 100% statements |
+
+Mutation checks: letting `planPlaces` reuse a place fails 3 `boardPlaces.test.ts` tests; sending the full input
+(with a typed environment) to the LLM cleanup on a real-place frame fails 1.
+
+### Gaps
+- No lists yet. Wikidata is blocked by this session's network policy, and places are not taken
+  from memory, so the Japan, Tokyo, Kyoto and Osaka lists must be sourced in a session that can
+  reach www.wikidata.org, pass `npm run check:places`, and be approved by Rob.
+- Nothing here is a live result; how well the image model renders a named place is unverified
+  until the live test.
+- Single-frame runs do not use the lists (V2-04 covers board frames).
+- PR #3 and PR #4 are stacked on this branch and need this commit merged up.
+
+### Next action
+Source the four Japan lists from Wikidata in a networked session, run `npm run check:places`,
+and send them to Rob for review.
+
+---
+
 ## 2026-10-30: hardening from the model and code audit; language cleanup on by default (V2-03)
 
 **Branch:** `claude/hardening`, from `d75db95` on `claude/boards` (PR #2).
