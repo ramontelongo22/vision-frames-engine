@@ -272,6 +272,7 @@ async function main(): Promise<number> {
       frames: result.frames.map((frame) => ({
         position: frame.position,
         placeSource: frame.placeSource,
+        ...(frame.realPlace ? { realPlace: frame.realPlace } : {}),
         status: frame.status,
         ...(frame.result ? frameRecord(frame.result) : {}),
       })),

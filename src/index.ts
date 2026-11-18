@@ -33,11 +33,13 @@ export type {
   RefinementCall,
 } from './engine';
 export { toPublicBoardOutcome, toPublicOutcome } from './delivery';
-export type { PublicBoardOutcome, PublicImage, PublicOutcome } from './delivery';
+export type { PublicBoardFrame, PublicBoardOutcome, PublicImage, PublicOutcome } from './delivery';
 export { VisionFramesBoard } from './board';
 export type { BoardEvent, BoardExitReason, BoardFrame, BoardFrameStatus, BoardHalt, BoardOptions, BoardResult } from './board';
 export { BOARD_SETTINGS_DRAFT, isBoardSize, planPlaces, validatePlaces } from './boardPlaces';
 export type { BoardSize, PlannedPlace } from './boardPlaces';
+export { REAL_PLACE_DESTINATIONS, REAL_PLACE_LIGHTS, matchDestination } from './realPlaces';
+export type { Destination, RealPlace } from './realPlaces';
 export { boardGeometry, composeBoard } from './boardImage';
 export type { BoardGeometry, BoardImageOptions, BoardImageResult } from './boardImage';
 export { NanoBananaImageGenerationModel, DEFAULT_GEMINI_ASPECT_RATIO, DEFAULT_GEMINI_IMAGE_MODEL } from './nanoBananaModel';

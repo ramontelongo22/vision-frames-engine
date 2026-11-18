@@ -18,8 +18,10 @@ Three kinds of entries:
 
 ## Owner decisions
 
-All made by Rob (owner) on 2026-10-29 and 2026-10-30 by choosing an option on a decision card
-in the project thread, after each card set out the conflicting sources and a recommendation.
+Made by Rob (owner) on 2026-10-29, 2026-10-30 and 2026-11-18, by choosing an option on a
+decision card in the project thread after it set out the conflicting sources and a
+recommendation, or (V2-04) by asking for the change in the project chat. V2-03 (language
+cleanup on by default) is recorded on the hardening branch (PR #3).
 
 ### V2-01 A QA-passing frame is never thrown away because its refinement failed
 - **Rule change:** R1 System Flow 6 says a failed refinement is discarded and the run either
@@ -69,6 +71,37 @@ in the project thread, after each card set out the conflicting sources and a rec
   `board.test.ts`, `boardPlaces.test.ts`, `boardImage.test.ts`, `raster.test.ts`. Engineering
   choices the spec left open are P-14 and P-15.
 
+### V2-04 A bare destination becomes a real, named place from an approved list
+- **Rule change:** R1 §3 lists "Environment preference (broad only)" and System Flow 2 says
+  "environment preference (broad)". On 2026-11-18 Rob asked in the project chat that when a
+  customer types only a destination, such as "Japan", "Tokyo" or "Osaka", the frame use "a real
+  place in Japan, or a real place in Tokyo or Osaka", "so we can say you should be envisioning
+  yourself in a real place there, not just a fake place that we made up", and that we keep
+  "ten to fifteen different defaults that we can choose from so we're not always
+  regenerating. Maybe we're just fixing light". So a board frame whose typed place is only a
+  destination with an owner-approved list gets a specific named place from that list as its
+  environment preference, with its city, country and a light.
+- **Kept real and verifiable:** every listed place carries its Wikidata item and coordinates.
+  `npm run check:places` confirms against live Wikidata that each item exists and was not
+  merged, that its English label or an English alias is the name we show, that its
+  coordinates are within 1 km of ours, that it is in the destination's country, and, for a
+  city, that it is within 60 km of the city. Places are never chosen or generated at order
+  time and no model is asked for them, so this adds no model calls. A list ships only after
+  the check passes and Rob approves it. The frame is the image model's rendering of the
+  place, not a photograph of it.
+- **First lists:** Japan, Tokyo, Kyoto and Osaka, 10 to 15 places each where one person
+  standing or walking alone looks natural (Rob's card choice "Japan first", 2026-11-18). Not
+  yet sourced: `REAL_PLACE_DESTINATIONS` is empty, so until the lists are approved every
+  destination is kept as typed and boards behave exactly as before.
+- **Unchanged:** a place the customer named themselves, or a destination with no list, is kept
+  as typed and filtered as before. The canonical prompt, the three Clean Intent fields, the
+  discard rules, both caps and silent stops. Single-frame runs do not use the lists.
+- **Code and tests:** `src/realPlaces.ts`, `planPlaces` in `src/boardPlaces.ts`,
+  `ExecuteOptions.approvedEnvironment` in `src/engine.ts`, `placeName` on board frames in
+  `toPublicBoardOutcome`, `src/placeCheck.ts` and the `src/checkPlaces.ts` script.
+  `realPlaces.test.ts`, `placeCheck.test.ts`, `boardPlaces.test.ts`, `board.test.ts`,
+  `engine.test.ts`. Engineering details are P-17.
+
 ### Answers to open questions
 | Question | Owner's choice | What follows |
 |----------|----------------|--------------|
@@ -86,6 +119,7 @@ in the project thread, after each card set out the conflicting sources and a rec
 | Board image with one frame (2026-10-30) | No, just the frame | One delivered frame comes alone, with no board image |
 | Same place twice (2026-10-30) | Yes, allow repeats | Typed places may repeat; fill-in settings never do |
 | v2 board spec (2026-10-30) | Approve, I'll mark settings later | Recorded as V2-02 and built with the draft settings list, tested with mock models only |
+| Real-places lists (2026-11-18) | Japan first | Japan, Tokyo, Kyoto and Osaka lists are sourced from Wikidata, checked with `npm run check:places`, and reviewed by Rob before they ship (V2-04) |
 
 ## Provisional engineering decisions
 
@@ -260,6 +294,30 @@ in the project thread, after each card set out the conflicting sources and a rec
 - **Trade-off:** up to 8 extra text-only calls per board, and the LLM may word the identity
   slightly differently in each frame. The alternative is one call for identity and mood per
   board plus deterministic filtering only for places. Revisit with live-test costs.
+
+### P-17 Real-place details V2-04 leaves open
+- **Matching:** only a bare destination matches. The typed place, lowercased, with accents and
+  punctuation removed and leading "somewhere", "anywhere", "around", "in" and "the" dropped,
+  must equal one of the destination's names. "a quiet street in Tokyo" and "Tokyo at night"
+  say more than the destination, so they stay as typed.
+- **Picks:** each destination's list is shuffled once per board (uniform random), and each
+  matching frame takes the next place not yet used on that board, so no place repeats, even
+  across lists that share places (a Japan list may hold Tokyo spots). If none is left the
+  typed destination is kept as typed; lists of at least 9 make that impossible for one list.
+- **Light:** real-place frames take "at dusk", "at night" and "in early morning light" in turn.
+  Dusk and night come first because the canonical prompt favors them.
+- **Setting text and the language cleanup:** the frame's environment preference is
+  "Name, City, Country, light". The optional LLM cleanup is told to keep settings broad and
+  would drop the name, so the place goes to the frame's run as `approvedEnvironment`: the LLM
+  sees only identity and mood (any typed environment is dropped), and the place still passes
+  the deterministic filter. A list is refused at startup if the filter would change any of its
+  settings, so names avoid apostrophes (the filter turns them into spaces) and filtered words
+  such as "Walk".
+- **What the customer and the records see:** each delivered real-place frame carries
+  `placeName` ("Name, City"). The runner's `run.json` records the destination key, Wikidata
+  item and that label per frame; board events hold counts only.
+- **Check limits:** 1 km between our coordinates and Wikidata's, 60 km from a city's centre.
+  Revisit with the first lists if large sites (parks, temple grounds) need more.
 
 ## Open owner decisions
 
