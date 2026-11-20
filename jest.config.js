@@ -1,6 +1,11 @@
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
+  transform: {
+    // ts-jest type-checks each test and compiles it as CommonJS whatever tsconfig's module
+    // is. 151002 only warns that the node20 module setting is not used for that; the
+    // compiled package keeps it, and smoke:mock runs the HEIC path from dist.
+    '^.+\\.ts$': ['ts-jest', { diagnostics: { ignoreCodes: [151002] } }],
+  },
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   collectCoverageFrom: [
