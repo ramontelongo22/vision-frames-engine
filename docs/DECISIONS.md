@@ -104,9 +104,12 @@ recommendation, or (V2-04) by asking for the change in the project chat.
   the check passes and Rob approves it. The frame is the image model's rendering of the
   place, not a photograph of it.
 - **First lists:** Japan, Tokyo, Kyoto and Osaka, 10 to 15 places each where one person
-  standing or walking alone looks natural (Rob's card choice "Japan first", 2026-11-18). Not
-  yet sourced: `REAL_PLACE_DESTINATIONS` is empty, so until the lists are approved every
-  destination is kept as typed and boards behave exactly as before.
+  standing or walking alone looks natural (Rob's card choice "Japan first", 2026-11-18). Sourced
+  from Wikidata on 2026-11-18: 14 places per destination, names taken from each item's English
+  label or alias, coordinates from its P625 value, raw query results in
+  `data/wikidata-candidates/`. All 56 pass `npm run check:places`. The lists are in
+  `REAL_PLACE_DESTINATIONS`, so local and mock boards now use them, and they still await Rob's
+  approval before anything ships. Emptying that array turns the feature off again.
 - **Unchanged:** a place the customer named themselves, or a destination with no list, is kept
   as typed and filtered as before. The canonical prompt, the three Clean Intent fields, the
   discard rules, both caps and silent stops. Single-frame runs do not use the lists.
