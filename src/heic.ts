@@ -59,7 +59,7 @@ export function isHeic(bytes: Uint8Array): boolean {
  */
 export async function convertHeicToJpeg(
   bytes: Uint8Array,
-  limits: HeicLimits = LIMITS.heicReference
+  limits: HeicLimits = LIMITS.referenceUpload
 ): Promise<HeicConversion> {
   if (bytes.length > limits.maxInputBytes) {
     return { ok: false, error: 'too_large' };

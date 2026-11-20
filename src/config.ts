@@ -40,15 +40,20 @@ export const LIMITS = {
     maxDimension: 8192,
   },
   /**
-   * iPhone HEIC references are converted to JPEG before the reference contract runs
-   * (O-05). The input cap is larger than `reference.maxBytes` because conversion
-   * downscales; the converted JPEG must still pass `reference`.
+   * Every uploaded reference photo is decoded and re-encoded as JPEG before the reference
+   * contract runs (P-09): HEIC because providers need a format they accept (O-05), and
+   * every other format so embedded metadata such as GPS location never leaves the
+   * engine and large phone photos are shrunk instead of rejected. The input cap is larger
+   * than `reference.maxBytes` because re-encoding downscales; the JPEG must still pass
+   * `reference`.
    */
-  heicReference: {
+  referenceUpload: {
     maxInputBytes: 20 * 1024 * 1024,
+    minDimension: 64,
+    maxDimension: 16384,
     /** Refuse to decode anything larger; a 48 MP iPhone photo is 8064 x 6048, about 48.8 M pixels */
     maxPixels: 50_000_000,
-    /** Longest side after conversion; the analyzer's high-detail input is 2048 px */
+    /** Longest side after re-encoding */
     maxOutputDimension: 2048,
     jpegQuality: 90,
   },

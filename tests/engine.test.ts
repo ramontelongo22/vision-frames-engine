@@ -357,17 +357,20 @@ describe('VisionFramesEngine', () => {
   });
 
   describe('AC-05 references go out with every request', () => {
-    it('sends the exact validated reference bytes to generation and analysis', async () => {
+    it('sends the same re-encoded reference photos, in order, to generation, refinement and analysis', async () => {
       const refs = references(3);
       const h = harness({ analyses: [pass('lighting'), pass()], references: refs });
       await h.engine.execute(input);
 
       const calls = [h.generateCalls[0], h.refineCalls[0], ...h.analyzeCalls];
+      const sent = h.generateCalls[0].references;
       for (const call of calls) {
         expect(call.references).toHaveLength(3);
         call.references.forEach((reference, i) => {
-          expect(Buffer.from(reference.bytes).equals(refs[i].bytes)).toBe(true);
-          expect(reference.mimeType).toBe('image/png');
+          // P-09: every reference is re-encoded as JPEG; the same bytes go to every call
+          expect(reference.bytes).toBe(sent[i].bytes);
+          expect(Buffer.from(reference.bytes).equals(refs[i].bytes)).toBe(false);
+          expect(reference.mimeType).toBe('image/jpeg');
           expect(reference.width).toBe(200 + i);
           expect(reference.height).toBe(300);
         });

@@ -6,6 +6,24 @@ that wrote the entry; re-run them on any other checkout.
 
 ---
 
+## 2026-11-20: place lists (PR #2, `0f3c826`) merged into PRs #3 and #4
+
+**Branches:** `claude/hardening` from `29a3215`, then `claude/tooling` from `f75206e`. Merge
+commits only; no history rewritten. No paid calls, no deployment.
+
+### What changed
+- One conflict: this log, where both branches had added a newest entry. Kept both, newest first.
+
+### Results
+| Branch | Command | Result |
+|--------|---------|--------|
+| `claude/hardening`, Node 22.22.0 | `npm ci && npm run verify` | exit 0; 17 suites passed; 374 passed, 1 todo (AC-11, blocked); smoke frame `delivered`; smoke board `delivered, 6 of 7 frames` |
+
+### Next action
+Owner: merge PRs #1 to #4 in order.
+
+---
+
 ## 2026-11-18: Japan, Tokyo, Kyoto and Osaka place lists sourced from Wikidata (V2-04)
 
 **Branch:** `claude/boards`, from `127fa3f`. Run on Rob's Mac in a separate clone, because the
@@ -40,6 +58,29 @@ cloud session cannot reach Wikidata. No paid calls, no deployment, no live run.
 
 ### Next action
 Rob reviews the four lists and approves them or names places to swap.
+
+---
+
+## 2026-11-18: real-places update (PR #2, `127fa3f`) merged into PRs #3 and #4
+
+**Branches:** `claude/hardening` from `f65bd54`, then `claude/tooling` from `143b3a6`. Merge
+commits only; no history rewritten. No paid calls, no deployment.
+
+### What changed
+- Conflicts resolved: the `src/engine.ts` imports (kept `reencodeReferences` from hardening and
+  `normalizeField` from boards) and appended entries in `DECISIONS.md` (V2-03 and V2-04, both
+  answers rows) and this log (both entries, newest first).
+
+### Results
+| Branch | Command | Result |
+|--------|---------|--------|
+| `claude/hardening`, Node 22.22.0 | `npm ci && npm run verify` | exit 0; 17 suites passed; 374 passed, 1 todo (AC-11, blocked) |
+
+### Gaps
+- Nothing new. The real-places lists are still empty (V2-04), so boards behave as before.
+
+### Next action
+Owner: merge PRs #1 to #4 in order.
 
 ---
 
@@ -98,6 +139,50 @@ Source the four Japan lists from Wikidata in a networked session, run `npm run c
 and send them to Rob for review.
 
 ---
+
+## 2026-10-30: hardening from the model and code audit; language cleanup on by default (V2-03)
+
+**Branch:** `claude/hardening`, from `d75db95` on `claude/boards` (PR #2).
+**Inputs:** the model and code audit (https://claude.ai/artifact/BaBZTB8f99kmAQk1gwokN6). Rob
+chose "Hardening and tooling PRs" and "On by default, gpt-6-luna" on decision cards. No paid
+calls, no deployment.
+
+### What changed
+- `src/photo.ts` (new): every JPEG, PNG or WebP reference is re-encoded with `sharp` 0.35.5 as an
+  upright JPEG, at most 2048 px, with all metadata removed (P-09). Before, these went to both
+  providers byte for byte, GPS location included, and anything over 4 MB was rejected.
+- `src/intake.ts`: `reencodeReferences` (was `convertHeicReferences`) re-encodes HEIC and every
+  other format; uploads up to 20 MB and 50 M pixels. `src/config.ts`: `LIMITS.referenceUpload`
+  (was `heicReference`). A board re-encodes once and frames reuse the prepared references.
+- `src/nanoBananaModel.ts`: `automaticContinuation: false` (the SDK's default would resend a
+  billed request on finish reason `CONTINUATION`); a `CONTINUATION` reply is a failed attempt;
+  `responseModalities: ['IMAGE']`. `@google/genai` 2.31.0 to 2.32.0.
+- `src/openAISemanticNormalizer.ts`: own default model `gpt-6-luna` (V2-03).
+  `src/runner.ts`: language cleanup on by default in live mode, `--no-semantic` turns it off.
+- Tests: `tests/photo.test.ts` and `tests/sdkClients.test.ts` (new; the real Gemini and OpenAI
+  SDK clients against a stubbed fetch); updates to engine, board, HEIC and adapter suites.
+- Docs: DECISIONS V2-03, P-04, P-09, P-10, P-12, P-15; README; TRACEABILITY; `.env.example`.
+
+### Results
+| Check | Command | Result |
+|-------|---------|--------|
+| Full pipeline | `npm run verify` | exit 0 |
+| Tests | `npm test -- --runInBand` | 15 suites passed; 333 passed, 1 todo (AC-11, blocked) |
+| Coverage | `npx jest --coverage` | lines 95.5%, branches 88.2%; `photo.ts` 100% |
+| Continuation guard | `sdkClients.test.ts` with `automaticContinuation: false` removed | the CONTINUATION test fails (the SDK sends a second request), so the test detects the problem |
+| Runtime audit | `npm audit --omit=dev` | 0 vulnerabilities |
+
+### Gaps
+- Still no live call: whether Gemini accepts image-only output for `gemini-3-pro-image`, and how
+  `gpt-6-luna` cleans real inputs, are unverified until the live test (O-06).
+- Re-encoding was tested with sharp-made fixtures, not with photos from real phones.
+- `sharp` is a native binary per platform; the lockfile carries the prebuilt packages for macOS,
+  Linux and Windows.
+
+### Next action
+1. Tooling PR (stacked on this one): CI, Node 24/26, TypeScript 6, ESLint 10, Jest 30.
+2. Owner: O-06 live test, starting with one QA call on a consented photo pair, on a paid Gemini
+   project.
 
 ## 2026-10-30: v2 boards (V2-02), built and tested with mock models
 

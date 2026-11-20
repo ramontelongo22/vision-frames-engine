@@ -12,7 +12,7 @@ commands and output behind each PASS.
 | AC | What it requires | Status | Evidence |
 |----|------------------|--------|----------|
 | AC-01 | Canonical text matches R1; PDF hash matches; no provider rewrites the core | PASS | `promptBuilder.test.ts` "source integrity"; adapters send `call.prompt` unchanged (`nanoBananaModel.test.ts`) |
-| AC-02 | Only permitted intent keys survive; references required and validated | PASS | `engine.test.ts` intake and AC-05 reference cases; `images.test.ts`; `heic.test.ts` (HEIC converted, O-05). Size limits are provisional (P-09) |
+| AC-02 | Only permitted intent keys survive; references required and validated | PASS | `engine.test.ts` intake and AC-05 reference cases; `images.test.ts`; `heic.test.ts` (HEIC converted, O-05); `photo.test.ts` (every photo re-encoded, metadata removed). Size limits are provisional (P-09) |
 | AC-03 | Hidden action/prop/role/outcome/command requests neutralized; safe wording kept | PASS (deterministic floor) | `normalize.test.ts` AC-03 fixtures. LLM step request shape tested; live behavior NOT VERIFIED. Empty identity per P-08 |
 | AC-04 | Each of eight violations fails; malformed, missing, refused analysis never passes | PASS | `qaGate.test.ts`; `engine.test.ts` AC-04 (13 malformed shapes); `openAIAnalysisModel.test.ts` parse failures |
 | AC-05 | Generation request carries exact reference bytes; analyzer gets candidate plus references | PASS (mock) | `engine.test.ts` AC-05; `nanoBananaModel.test.ts` generate; `openAIAnalysisModel.test.ts` |
@@ -39,7 +39,7 @@ commands and output behind each PASS.
 | RQ-01 single still image, not a board | Engine delivers one frame per run | PASS for the engine. Changed for v2 by V2-02: a board is assembled from independent v1 frame runs |
 | RQ-02 language framing | `normalize.ts` disallowed framing; canonical text kept verbatim (D10) | PASS (deterministic) |
 | RQ-03 intake boundary | `intake.ts`, `prepareReferences` | PASS |
-| RQ-04 silent semantic normalization | `normalize.ts`, `semanticNormalizer.ts`, `openAISemanticNormalizer.ts` | PASS (mock); live LLM NOT VERIFIED |
+| RQ-04 silent semantic normalization | `normalize.ts`, `semanticNormalizer.ts`, `openAISemanticNormalizer.ts`; on by default in live runs (V2-03) | PASS (mock); live LLM NOT VERIFIED |
 | RQ-05 immutable canonical prompt | `promptBuilder.ts` `CANONICAL_PROMPT_V1` | PASS |
 | RQ-06 action and subject constraints | Canonical prompt; QA findings | PASS (gate logic); live detection NOT VERIFIED |
 | RQ-07 composition and lighting | Canonical prompt; close-up finding; refinement categories | PASS (gate logic); live NOT VERIFIED |
