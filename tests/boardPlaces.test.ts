@@ -177,9 +177,16 @@ describe('planPlaces with real places (V2-04)', () => {
     expect(plan[2].place).toBe('Testburg');
   });
 
-  it('keeps every destination as typed while no list has been approved', () => {
-    const plan = planPlaces(['Japan', 'Tokyo', 'Osaka'], 3, settings, () => 0);
-    expect(plan.map((p) => p.source)).toEqual(['customer', 'customer', 'customer']);
+  it('sets Japan, Tokyo, Kyoto and Osaka in different named places from the default lists', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const typed = ['Japan', 'Tokyo', 'Kyoto, Japan', 'somewhere in Osaka', 'Japan', 'Tokyo', 'Kyoto', 'Osaka', 'Japan'];
+      const plan = planPlaces(typed, 9, settings, seeded(seed));
+      expect(plan.every((p) => p.source === 'real_place')).toBe(true);
+      expect(new Set(realOf(plan)).size).toBe(9);
+      expect(plan.map((p) => p.realPlace?.destination)).toEqual(
+        ['japan', 'tokyo', 'kyoto', 'osaka', 'japan', 'tokyo', 'kyoto', 'osaka', 'japan']
+      );
+    }
   });
 });
 
